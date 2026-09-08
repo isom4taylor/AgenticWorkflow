@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Language Learning App</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="toast-container" class="toast-container"></div>
+  <div id="modal-root"></div>
+
+  <!-- AUTH VIEW -->
+  <div id="view-auth" class="auth-shell hidden">
+    <div class="auth-card">
+      <h1>🌐 Language Learning App</h1>
+
+      <div id="login-form" class="auth-form">
+        <h2>Log In</h2>
+        <label>Email
+          <input type="email" id="login-email" placeholder="you@example.com" autocomplete="username" />
+        </label>
+        <label>Password
+          <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
+        </label>
+        <button id="login-submit" class="btn btn-primary">Log In</button>
+        <p class="switch-link">No account yet? <a href="#" id="show-register">Create one</a></p>
+      </div>
+
+      <div id="register-form" class="auth-form hidden">
+        <h2>Create Account</h2>
+        <label>Email
+          <input type="email" id="register-email" placeholder="you@example.com" autocomplete="username" />
+        </label>
+        <label>Password
+          <input type="password" id="register-password" placeholder="At least 6 characters" autocomplete="new-password" />
+        </label>
+        <button id="register-submit" class="btn btn-primary">Create Account</button>
+        <p class="switch-link">Already have an account? <a href="#" id="show-login">Log in</a></p>
+      </div>
+
+      <div id="forgot-form" class="auth-form hidden">
+        <h2>Reset Password</h2>
+        <p class="muted">That email is already in use. Enter a new password to reset it.</p>
+        <label>Email
+          <input type="email" id="forgot-email" />
+        </label>
+        <label>New Password
+          <input type="password" id="forgot-password" placeholder="At least 6 characters" />
+        </label>
+        <button id="forgot-submit" class="btn btn-primary">Reset Password</button>
+        <p class="switch-link"><a href="#" id="show-login-2">Back to log in</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP VIEW -->
+  <div id="view-app" class="app-shell hidden">
+    <nav class="navbar">
+      <div class="nav-brand">🌐 Language Learning App</div>
+      <div class="nav-tabs">
+        <button class="nav-tab active" data-tab="lists">My Words</button>
+        <button class="nav-tab" data-tab="import">Import</button>
+        <button class="nav-tab" data-tab="settings">Settings</button>
+        <button class="nav-tab" data-tab="account">Account</button>
+      </div>
+      <div class="nav-right">
+        <span id="streak-badge" class="streak-badge" title="Daily streak">🔥 0</span>
+        <button id="logout-btn" class="btn btn-ghost">Log Out</button>
+      </div>
+    </nav>
+
+    <main class="content">
+      <!-- LISTS TAB -->
+      <section id="tab-lists" class="tab-panel">
+        <div class="list-tabs">
+          <button class="list-tab active" data-list="Learn">Learn <span class="count-pill" id="count-Learn">0/100</span></button>
+          <button class="list-tab" data-list="Learning">Learning <span class="count-pill" id="count-Learning">0</span></button>
+          <button class="list-tab" data-list="Learned">Learned <span class="count-pill" id="count-Learned">0</span></button>
+        </div>
+
+        <div class="add-record-bar">
+          <input type="text" id="add-base-text" placeholder="Base language text (e.g. English word/phrase)" />
+          <input type="text" id="add-learning-text" placeholder="Learning language text (optional)" />
+          <button id="add-record-btn" class="btn btn-primary">+ Add Record</button>
+        </div>
+
+        <div id="records-container" class="records-container">
+          <p class="muted">Loading…</p>
+        </div>
+      </section>
+
+      <!-- IMPORT TAB -->
+      <section id="tab-import" class="tab-panel hidden">
+        <div class="card">
+          <h2>Import from Google Translate</h2>
+          <p class="muted">
+            Export your starred/saved translations from Google Translate as a CSV file, then upload it here.
+            Imported items are added to your <strong>Learning</strong> list.
+          </p>
+          <div class="form-row">
+            <input type="file" id="import-file" accept=".csv,text/csv" />
+          </div>
+          <label class="checkbox-row">
+            <input type="checkbox" id="import-advanced" />
+            Advanced import — break up sentences into smaller, digestible portions
+          </label>
+          <button id="import-submit" class="btn btn-primary">Import CSV</button>
+          <div id="import-result" class="import-result"></div>
+        </div>
+      </section>
+
+      <!-- SETTINGS TAB -->
+      <section id="tab-settings" class="tab-panel hidden">
+        <div class="card">
+          <h2>Profile Settings</h2>
+          <label>Email
+            <input type="email" id="settings-email" />
+          </label>
+          <label>Base Language
+            <input type="text" id="settings-base-language" />
+          </label>
+          <label>Learning Languages <span class="muted">(comma-separated)</span>
+            <input type="text" id="settings-learning-languages" />
+          </label>
+          <label>Language Fluency
+            <select id="settings-fluency">
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </label>
+          <label>Daily Streak Count
+            <input type="text" id="settings-streak" disabled />
+          </label>
+          <button id="settings-save-btn" class="btn btn-primary">Save Settings</button>
+        </div>
+
+        <div class="card">
+          <h2>Change Password</h2>
+          <label>Current Password
+            <input type="password" id="settings-current-password" />
+          </label>
+          <label>New Password
+            <input type="password" id="settings-new-password" />
+          </label>
+          <button id="settings-password-btn" class="btn btn-primary">Change Password</button>
+        </div>
+      </section>
+
+      <!-- ACCOUNT TAB -->
+      <section id="tab-account" class="tab-panel hidden">
+        <div class="card">
+          <h2>Reset Account</h2>
+          <p class="muted">Resets your Learning Language Database back to its initial state (default word list). This cannot be undone.</p>
+          <button id="reset-account-btn" class="btn btn-warning">Reset Account</button>
+        </div>
+
+        <div class="card danger-zone">
+          <h2>Delete Account</h2>
+          <p class="muted">Permanently deletes your account and Learning Language Database.</p>
+          <button id="export-db-btn" class="btn btn-ghost">Export Database to CSVs</button>
+          <button id="delete-account-btn" class="btn btn-danger">Delete Account</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

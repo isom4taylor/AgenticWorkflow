@@ -1,0 +1,191 @@
+:root {
+  --primary: #4f46e5;
+  --primary-dark: #4338ca;
+  --danger: #dc2626;
+  --warning: #d97706;
+  --bg: #f5f6fb;
+  --card-bg: #ffffff;
+  --border: #e2e4ee;
+  --text: #1f2333;
+  --muted: #6b7280;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.hidden { display: none !important; }
+
+/* ---------- Auth ---------- */
+.auth-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.auth-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 10px 30px rgba(20, 20, 60, 0.06);
+}
+.auth-card h1 { font-size: 20px; text-align: center; margin-bottom: 24px; }
+.auth-form h2 { margin-top: 0; }
+.auth-form label { display: block; margin-bottom: 14px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.auth-form input { width: 100%; margin-top: 6px; }
+.switch-link { text-align: center; font-size: 13px; color: var(--muted); }
+.switch-link a { color: var(--primary); text-decoration: none; }
+
+/* ---------- Inputs / buttons ---------- */
+input[type="text"], input[type="email"], input[type="password"], select {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+  color: var(--text);
+}
+input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+.btn {
+  cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: opacity .15s ease;
+}
+.btn:hover { opacity: 0.9; }
+.btn-primary { background: var(--primary); color: #fff; width: 100%; margin-top: 4px; }
+.btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn-warning { background: #fff7ed; color: var(--warning); border: 1px solid #fed7aa; }
+.btn-danger { background: var(--danger); color: #fff; margin-left: 8px; }
+.btn-small { padding: 5px 10px; font-size: 12px; }
+
+/* ---------- App shell ---------- */
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.nav-brand { font-weight: 700; }
+.nav-tabs { display: flex; gap: 6px; }
+.nav-tab {
+  background: transparent;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.nav-tab.active { background: var(--primary); color: #fff; }
+.nav-right { display: flex; align-items: center; gap: 12px; }
+.streak-badge { background: #fef3c7; padding: 6px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+
+.content { max-width: 960px; margin: 0 auto; padding: 24px; }
+.tab-panel {}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.card h2 { margin-top: 0; }
+.card label { display: block; margin-bottom: 14px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.card input, .card select { width: 100%; margin-top: 6px; }
+.danger-zone { border-color: #fecaca; }
+
+/* ---------- Lists ---------- */
+.list-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.list-tab {
+  background: #fff;
+  border: 1px solid var(--border);
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.list-tab.active { border-color: var(--primary); color: var(--primary); background: #eef2ff; }
+.count-pill { background: var(--border); color: var(--text); border-radius: 999px; padding: 1px 8px; font-size: 12px; }
+
+.add-record-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+.add-record-bar input { flex: 1; }
+.add-record-bar button { white-space: nowrap; width: auto; }
+
+.records-container { display: flex; flex-direction: column; gap: 10px; }
+.record-row {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.record-texts { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px; }
+.record-texts .base { font-weight: 600; }
+.record-texts .learning { color: var(--muted); font-size: 13px; }
+.record-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.form-row { margin-bottom: 12px; }
+.checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-bottom: 16px; }
+.checkbox-row input { width: auto; }
+.import-result { margin-top: 14px; font-size: 14px; }
+
+.muted { color: var(--muted); font-size: 13px; }
+
+/* ---------- Toast ---------- */
+.toast-container { position: fixed; top: 16px; right: 16px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  background: #1f2333;
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+  max-width: 340px;
+  animation: toast-in .15s ease-out;
+}
+.toast.error { background: var(--danger); }
+.toast.success { background: #16a34a; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ---------- Modal ---------- */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(15, 15, 30, 0.5);
+  display: flex; align-items: center; justify-content: center; z-index: 999;
+  padding: 16px;
+}
+.modal-box {
+  background: #fff; border-radius: var(--radius); padding: 24px; max-width: 420px; width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+.modal-box h3 { margin-top: 0; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
+.modal-box input { width: 100%; margin-top: 6px; margin-bottom: 12px; }
