@@ -4,37 +4,37 @@ description: |
   activity (issues, PRs, discussions, releases, code changes) and generates
   engaging GitHub issues with productivity insights, community highlights,
   and project recommendations.
-
-on:
-  schedule: daily
-  workflow_dispatch:
-
+engine: claude
+network: defaults
+"on":
+  schedule: every 1w
+  workflow_dispatch: null
 permissions:
   contents: read
   issues: read
   pull-requests: read
-
-network: defaults
-
-tools:
-  bash: ["cat", "ls", "find", "grep", "head", "tail", "wc"]
-  github:
-    # If in a public repo, setting `lockdown: false` allows
-    # reading issues, pull requests and comments from 3rd-parties
-    # If in a private repo this has no particular effect.
-    lockdown: false
-    min-integrity: none # This workflow is allowed to examine and comment on any issues
-
 safe-outputs:
-  mentions: false
   allowed-github-references: []
   create-issue:
-    title-prefix: "[repo-status] "
-    labels: [report, daily-status]
     close-older-issues: true
-engine: claude
-
+    labels:
+      - report
+      - daily-status
+    title-prefix: "[repo-status] "
+  mentions: false
 source: githubnext/agentics/workflows/repo-status.md@578e0e0ea6291fed42a36d3fd46cec6a0e86afd8
+tools:
+  bash:
+    - cat
+    - ls
+    - find
+    - grep
+    - head
+    - tail
+    - wc
+  github:
+    lockdown: false
+    min-integrity: none
 ---
 
 # Repo Status
