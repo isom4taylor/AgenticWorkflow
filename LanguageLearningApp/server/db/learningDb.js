@@ -3,7 +3,12 @@
 // Each user gets their own database file containing three tables:
 //   Learn, Learning, Learned
 // Each row (record) has the shape:
-//   { id, base_language, learning_language, base_text, learning_text, notes, created_at, updated_at }
+//   { id, base_language, part_of_speech, learning_language, base_text,
+//     learning_text, notes, created_at, updated_at }
+//
+// `id` is a numeric, auto-incrementing identifier that is unique across all
+// three tables for a given user (so moving a record between tables never
+// changes its id).
 
 const path = require('path');
 const { readJson, writeJson } = require('./jsonFile');
@@ -37,6 +42,15 @@ function assertTable(tableName) {
   }
 }
 
+function checkLearnCap(db, toTable) {
+  if (toTable === 'Learn' && db.tables.Learn.length >= LEARN_LIST_CAP) {
+    throw Object.assign(
+      new Error(`The "Learn" list is capped at ${LEARN_LIST_CAP} items. Move some items out before adding more.`),
+      { code: 'LEARN_LIST_FULL' }
+    );
+  }
+}
+
 // Creates (or resets) a user's learning database to its initial state:
 // the "Learn" table seeded with the default vocabulary, "Learning" and
 // "Learned" empty.
@@ -47,6 +61,7 @@ function initializeOrReset(userId, { baseLanguage, learningLanguage }) {
     db.tables.Learn.push({
       id: db.nextId++,
       base_language: baseLanguage || 'English',
+      part_of_speech: '',
       learning_language: learningLanguage || 'Spanish',
       base_text: word,
       learning_text: '',
@@ -79,30 +94,32 @@ function countRecords(userId, tableName) {
   return db.tables[tableName].length;
 }
 
-function addRecord(userId, tableName, { baseLanguage, learningLanguage, baseText, learningText, notes }) {
-  assertTable(tableName);
-  const db = load(userId);
-  if (tableName === 'Learn' && db.tables.Learn.length >= LEARN_LIST_CAP) {
-    throw Object.assign(
-      new Error(`The "Learn" list is capped at ${LEARN_LIST_CAP} items. Move some items out before adding more.`),
-      { code: 'LEARN_LIST_FULL' }
-    );
-  }
+function makeRecord(db, r) {
   const now = new Date().toISOString();
-  const record = {
+  return {
     id: db.nextId++,
-    base_language: baseLanguage || 'English',
-    learning_language: learningLanguage || 'Spanish',
-    base_text: baseText || '',
-    learning_text: learningText || '',
-    notes: notes || '',
+    base_language: r.baseLanguage || 'English',
+    part_of_speech: r.partOfSpeech || '',
+    learning_language: r.learningLanguage || 'Spanish',
+    base_text: r.baseText || '',
+    learning_text: r.learningText || '',
+    notes: r.notes || '',
     created_at: now,
     updated_at: now,
   };
+}
+
+function addRecord(userId, tableName, fields) {
+  assertTable(tableName);
+  const db = load(userId);
+  checkLearnCap(db, tableName);
+  const record = makeRecord(db, fields);
   db.tables[tableName].push(record);
   save(userId, db);
   return record;
 }
+
+const PATCHABLE_FIELDS = ['base_language', 'part_of_speech', 'learning_language', 'base_text', 'learning_text', 'notes'];
 
 function updateRecord(userId, tableName, id, patch) {
   assertTable(tableName);
@@ -110,9 +127,8 @@ function updateRecord(userId, tableName, id, patch) {
   const list = db.tables[tableName];
   const idx = list.findIndex((r) => r.id === Number(id));
   if (idx === -1) throw Object.assign(new Error('Record not found'), { code: 'NOT_FOUND' });
-  const allowed = ['base_language', 'learning_language', 'base_text', 'learning_text', 'notes'];
   const clean = {};
-  allowed.forEach((key) => {
+  PATCHABLE_FIELDS.forEach((key) => {
     if (patch[key] !== undefined) clean[key] = patch[key];
   });
   list[idx] = { ...list[idx], ...clean, updated_at: new Date().toISOString() };
@@ -137,12 +153,7 @@ function moveRecord(userId, fromTable, id, toTable) {
   const fromList = db.tables[fromTable];
   const idx = fromList.findIndex((r) => r.id === Number(id));
   if (idx === -1) throw Object.assign(new Error('Record not found'), { code: 'NOT_FOUND' });
-  if (toTable === 'Learn' && db.tables.Learn.length >= LEARN_LIST_CAP) {
-    throw Object.assign(
-      new Error(`The "Learn" list is capped at ${LEARN_LIST_CAP} items. Move some items out before adding more.`),
-      { code: 'LEARN_LIST_FULL' }
-    );
-  }
+  checkLearnCap(db, toTable);
   const [record] = fromList.splice(idx, 1);
   record.updated_at = new Date().toISOString();
   db.tables[toTable].push(record);
@@ -153,28 +164,81 @@ function moveRecord(userId, fromTable, id, toTable) {
 function bulkAdd(userId, tableName, records) {
   assertTable(tableName);
   const db = load(userId);
-  const now = new Date().toISOString();
   let added = 0;
   records.forEach((r) => {
     if (tableName === 'Learn' && db.tables.Learn.length >= LEARN_LIST_CAP) return;
-    db.tables[tableName].push({
-      id: db.nextId++,
-      base_language: r.baseLanguage || 'English',
-      learning_language: r.learningLanguage || 'Spanish',
-      base_text: r.baseText || '',
-      learning_text: r.learningText || '',
-      notes: r.notes || '',
-      created_at: now,
-      updated_at: now,
-    });
+    db.tables[tableName].push(makeRecord(db, r));
     added += 1;
   });
   save(userId, db);
   return added;
 }
 
+// Moves multiple records (by id) from one table to another in a single
+// pass. Stops adding to the destination once the Learn cap is hit; returns
+// a summary so the caller can report partial success.
+function bulkMove(userId, fromTable, ids, toTable) {
+  assertTable(fromTable);
+  assertTable(toTable);
+  if (fromTable === toTable) throw Object.assign(new Error('Source and destination lists are the same'), { code: 'SAME_LIST' });
+  const db = load(userId);
+  const idSet = new Set(ids.map(Number));
+  const fromList = db.tables[fromTable];
+  let moved = 0;
+  let skippedFull = 0;
+  const remaining = [];
+  fromList.forEach((record) => {
+    if (idSet.has(record.id)) {
+      if (toTable === 'Learn' && db.tables.Learn.length >= LEARN_LIST_CAP) {
+        skippedFull += 1;
+        remaining.push(record); // leave it in the source list
+        return;
+      }
+      record.updated_at = new Date().toISOString();
+      db.tables[toTable].push(record);
+      moved += 1;
+    } else {
+      remaining.push(record);
+    }
+  });
+  db.tables[fromTable] = remaining;
+  save(userId, db);
+  return { moved, skippedFull };
+}
+
+function bulkDelete(userId, tableName, ids) {
+  assertTable(tableName);
+  const db = load(userId);
+  const idSet = new Set(ids.map(Number));
+  const before = db.tables[tableName].length;
+  db.tables[tableName] = db.tables[tableName].filter((r) => !idSet.has(r.id));
+  const deleted = before - db.tables[tableName].length;
+  save(userId, db);
+  return deleted;
+}
+
+// Applies the same field patch (e.g. { part_of_speech: 'noun' }) to every
+// record whose id is in `ids`.
+function bulkUpdate(userId, tableName, ids, patch) {
+  assertTable(tableName);
+  const db = load(userId);
+  const idSet = new Set(ids.map(Number));
+  const clean = {};
+  PATCHABLE_FIELDS.forEach((key) => {
+    if (patch[key] !== undefined) clean[key] = patch[key];
+  });
+  let updated = 0;
+  db.tables[tableName] = db.tables[tableName].map((r) => {
+    if (!idSet.has(r.id)) return r;
+    updated += 1;
+    return { ...r, ...clean, updated_at: new Date().toISOString() };
+  });
+  save(userId, db);
+  return updated;
+}
+
 function toCsv(rows) {
-  const headers = ['base_language', 'learning_language', 'base_text', 'learning_text', 'notes', 'created_at', 'updated_at'];
+  const headers = ['id', 'base_language', 'part_of_speech', 'learning_language', 'base_text', 'learning_text', 'notes', 'created_at', 'updated_at'];
   const escape = (val) => {
     const s = String(val === undefined || val === null ? '' : val);
     if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
@@ -209,5 +273,8 @@ module.exports = {
   deleteRecord,
   moveRecord,
   bulkAdd,
+  bulkMove,
+  bulkDelete,
+  bulkUpdate,
   exportAllAsCsv,
 };

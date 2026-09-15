@@ -116,6 +116,8 @@ input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: 1
 .danger-zone { border-color: #fecaca; }
 
 /* ---------- Lists ---------- */
+.list-tabs-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 4px; }
+.advanced-toggle { margin: 0; font-weight: 700; }
 .list-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
 .list-tab {
   background: #fff;
@@ -133,9 +135,37 @@ input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: 1
 .list-tab.active { border-color: var(--primary); color: var(--primary); background: #eef2ff; }
 .count-pill { background: var(--border); color: var(--text); border-radius: 999px; padding: 1px 8px; font-size: 12px; }
 
-.add-record-bar { display: flex; gap: 8px; margin-bottom: 16px; }
-.add-record-bar input { flex: 1; }
+.add-record-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.add-record-bar input { flex: 1; min-width: 160px; }
+.add-record-bar select { width: auto; }
 .add-record-bar button { white-space: nowrap; width: auto; }
+
+.bulk-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+.bulk-toolbar select { width: auto; }
+.toolbar-spacer { flex: 1; }
+.select-hint { font-size: 0.85em; cursor: help; white-space: nowrap; }
+
+#mass-add-panel textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  margin-bottom: 12px;
+  resize: vertical;
+}
 
 .records-container { display: flex; flex-direction: column; gap: 10px; }
 .record-row {
@@ -148,8 +178,11 @@ input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: 1
   gap: 16px;
   flex-wrap: wrap;
 }
-.record-texts { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px; }
+.record-row .record-checkbox { width: auto; margin: 0; }
+.record-id { color: var(--muted); font-size: 12px; font-family: monospace; min-width: 34px; }
+.record-texts { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 4px; }
 .record-texts .base { font-weight: 600; }
+.record-texts .pos { display: inline-block; background: var(--border); color: var(--muted); border-radius: 999px; padding: 1px 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-left: 8px; vertical-align: middle; }
 .record-texts .learning { color: var(--muted); font-size: 13px; }
 .record-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
@@ -189,3 +222,19 @@ input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: 1
 .modal-box h3 { margin-top: 0; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
 .modal-box input { width: 100%; margin-top: 6px; margin-bottom: 12px; }
+.modal-box select { width: 100%; margin-top: 6px; margin-bottom: 12px; }
+
+.translate-options-list { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; margin: 12px 0; }
+.translate-option-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.translate-option-row input[type="checkbox"] { width: auto; margin: 0; }
+.translate-option-row .opt-text { flex: 1; font-weight: 600; }
+.translate-option-row .opt-pos { color: var(--muted); font-size: 12px; text-transform: uppercase; font-weight: 700; }
+.select-all-row { display: flex; align-items: center; gap: 8px; font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 4px; }
+.select-all-row input { width: auto; margin: 0; }

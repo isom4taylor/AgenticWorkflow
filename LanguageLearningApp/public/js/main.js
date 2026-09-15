@@ -1,5 +1,6 @@
 import { api, getToken, setToken, downloadExport } from './api.js';
-import { toast, confirmModal, promptMoveModal, editRecordModal, escapeHtml } from './ui.js';
+import { toast, confirmModal, promptMoveModal, editRecordModal, translateOptionsModal, escapeHtml } from './ui.js';
+import { PARTS_OF_SPEECH, posOptionsHtml } from './constants.js';
 
 const els = {
   viewAuth: document.getElementById('view-auth'),
@@ -11,6 +12,10 @@ const els = {
 
 let currentUser = null;
 let currentList = 'Learn';
+let currentRecords = [];
+let advancedMode = false;
+const selectedIds = new Set();
+let selectionAnchorIndex = null; // last non-shift-clicked checkbox index, used as the Shift+Click range anchor
 const ALL_LISTS = ['Learn', 'Learning', 'Learned'];
 
 // ---------------- Auth view wiring ----------------
@@ -24,6 +29,15 @@ function showAuthPanel(panel) {
 document.getElementById('show-register').onclick = (e) => { e.preventDefault(); showAuthPanel('register'); };
 document.getElementById('show-login').onclick = (e) => { e.preventDefault(); showAuthPanel('login'); };
 document.getElementById('show-login-2').onclick = (e) => { e.preventDefault(); showAuthPanel('login'); };
+
+document.getElementById('show-forgot').onclick = (e) => {
+  e.preventDefault();
+  document.getElementById('forgot-form-hint').textContent = 'Enter your account email and a new password to reset it.';
+  const loginEmail = document.getElementById('login-email').value.trim();
+  if (loginEmail) document.getElementById('forgot-email').value = loginEmail;
+  document.getElementById('forgot-password').value = '';
+  showAuthPanel('forgot');
+};
 
 document.getElementById('login-submit').onclick = async () => {
   const email = document.getElementById('login-email').value.trim();
@@ -51,7 +65,9 @@ document.getElementById('register-submit').onclick = async () => {
         confirmText: 'Reset Password',
       });
       if (proceed) {
+        document.getElementById('forgot-form-hint').textContent = 'That email is already in use. Enter a new password to reset it.';
         document.getElementById('forgot-email').value = email;
+        document.getElementById('forgot-password').value = '';
         showAuthPanel('forgot');
       }
     } else {
@@ -105,8 +121,39 @@ function renderApp() {
   els.viewApp.classList.remove('hidden');
   document.getElementById('streak-badge').textContent = `🔥 ${currentUser.daily_streak_count}`;
   fillSettingsForm();
+  populatePartOfSpeechSelects();
+  applyLanguageLabels();
   loadListCounts();
   loadCurrentList();
+}
+
+// ---------------- Language-aware labels/placeholders ----------------
+
+function targetLearningLanguage() {
+  return (currentUser && currentUser.learning_languages && currentUser.learning_languages[0]) || 'the learning language';
+}
+
+function applyLanguageLabels() {
+  if (!currentUser) return;
+  const baseLang = currentUser.base_language || 'Base language';
+  const learningLang = targetLearningLanguage();
+  document.getElementById('add-base-text').placeholder = `${baseLang} word/phrase`;
+  document.getElementById('add-learning-text').placeholder = `${learningLang} translation (optional)`;
+  document.getElementById('mass-add-textarea').placeholder =
+    `hello, hola, interjection\nthe library, la biblioteca, noun\n(Base text, ${learningLang} translation, Part of speech — translation & POS optional)`;
+}
+
+function populatePartOfSpeechSelects() {
+  document.getElementById('add-part-of-speech').innerHTML = posOptionsHtml('');
+  document.getElementById('bulk-pos-select').innerHTML = PARTS_OF_SPEECH
+    .map((p) => `<option value="${p}">${p === '' ? '(clear part of speech)' : p}</option>`)
+    .join('');
+}
+
+function populateMoveTargetSelect() {
+  const select = document.getElementById('bulk-move-target');
+  const others = ALL_LISTS.filter((l) => l !== currentList);
+  select.innerHTML = others.map((l) => `<option value="${l}">${l}</option>`).join('');
 }
 
 // ---------------- Lists tab ----------------
@@ -116,9 +163,59 @@ document.querySelectorAll('.list-tab').forEach((btn) => {
     document.querySelectorAll('.list-tab').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     currentList = btn.getAttribute('data-list');
+    selectedIds.clear();
+    selectionAnchorIndex = null;
+    populateMoveTargetSelect();
     loadCurrentList();
   };
 });
+
+document.getElementById('advanced-mode-toggle').onchange = (e) => {
+  advancedMode = e.target.checked;
+  document.getElementById('bulk-toolbar').classList.toggle('hidden', !advancedMode);
+  document.getElementById('mass-add-panel').classList.toggle('hidden', !advancedMode);
+  selectedIds.clear();
+  selectionAnchorIndex = null;
+  populateMoveTargetSelect();
+  renderRecords(currentRecords);
+};
+
+document.getElementById('select-all-checkbox').onchange = (e) => {
+  if (e.target.checked) currentRecords.forEach((r) => selectedIds.add(r.id));
+  else selectedIds.clear();
+  selectionAnchorIndex = null;
+  renderRecords(currentRecords);
+};
+
+// Handles Click / Ctrl(Cmd)+Click / Shift+Click on a record's selection
+// checkbox, mirroring the familiar file-manager multi-select convention:
+//   - Click:        select only this row (clears any other selection).
+//   - Ctrl/Cmd+Click: toggle just this row in/out of the selection, leaving
+//                      the rest of the selection untouched.
+//   - Shift+Click:  select the contiguous range between the last clicked
+//                    row (the anchor) and this row, adding it to whatever
+//                    is already selected.
+// We call preventDefault() so the checkbox's native checked state never
+// gets out of sync with our own selectedIds source of truth.
+function handleCheckboxClick(e, record, index) {
+  e.preventDefault();
+  if (e.shiftKey && selectionAnchorIndex !== null) {
+    const start = Math.min(selectionAnchorIndex, index);
+    const end = Math.max(selectionAnchorIndex, index);
+    for (let i = start; i <= end; i++) {
+      selectedIds.add(currentRecords[i].id);
+    }
+  } else if (e.ctrlKey || e.metaKey) {
+    if (selectedIds.has(record.id)) selectedIds.delete(record.id);
+    else selectedIds.add(record.id);
+    selectionAnchorIndex = index;
+  } else {
+    selectedIds.clear();
+    selectedIds.add(record.id);
+    selectionAnchorIndex = index;
+  }
+  renderRecords(currentRecords);
+}
 
 async function loadListCounts() {
   try {
@@ -138,25 +235,35 @@ async function loadCurrentList() {
   container.innerHTML = '<p class="muted">Loading…</p>';
   try {
     const { data } = await api.listRecords(currentList);
-    renderRecords(data.records);
+    currentRecords = data.records;
+    renderRecords(currentRecords);
   } catch (err) {
     container.innerHTML = `<p class="muted">Failed to load: ${escapeHtml(err.message)}</p>`;
   }
+}
+
+function updateSelectedCountLabel() {
+  document.getElementById('selected-count').textContent = `${selectedIds.size} selected`;
+  const total = currentRecords.length;
+  document.getElementById('select-all-checkbox').checked = total > 0 && selectedIds.size === total;
 }
 
 function renderRecords(records) {
   const container = document.getElementById('records-container');
   if (records.length === 0) {
     container.innerHTML = '<p class="muted">No records in this list yet.</p>';
+    updateSelectedCountLabel();
     return;
   }
   container.innerHTML = '';
-  records.forEach((r) => {
+  records.forEach((r, index) => {
     const row = document.createElement('div');
     row.className = 'record-row';
     row.innerHTML = `
+      ${advancedMode ? `<input type="checkbox" class="record-checkbox" ${selectedIds.has(r.id) ? 'checked' : ''} />` : ''}
+      <span class="record-id">#${r.id}</span>
       <div class="record-texts">
-        <span class="base">${escapeHtml(r.base_text)}</span>
+        <span class="base">${escapeHtml(r.base_text)}${r.part_of_speech ? `<span class="pos">${escapeHtml(r.part_of_speech)}</span>` : ''}</span>
         <span class="learning">${r.learning_text ? escapeHtml(r.learning_text) : '<em>no translation yet</em>'}</span>
       </div>
       <div class="record-actions">
@@ -164,11 +271,16 @@ function renderRecords(records) {
         <button class="btn btn-ghost btn-small" data-action="move">Move</button>
         <button class="btn btn-danger btn-small" data-action="delete">Delete</button>
       </div>`;
+    if (advancedMode) {
+      const checkbox = row.querySelector('.record-checkbox');
+      checkbox.onclick = (e) => handleCheckboxClick(e, r, index);
+    }
     row.querySelector('[data-action="edit"]').onclick = () => handleEdit(r);
     row.querySelector('[data-action="move"]').onclick = () => handleMove(r);
     row.querySelector('[data-action="delete"]').onclick = () => handleDelete(r);
     container.appendChild(row);
   });
+  updateSelectedCountLabel();
 }
 
 async function handleEdit(record) {
@@ -218,12 +330,117 @@ async function handleDelete(record) {
 document.getElementById('add-record-btn').onclick = async () => {
   const baseText = document.getElementById('add-base-text').value.trim();
   const learningText = document.getElementById('add-learning-text').value.trim();
+  const partOfSpeech = document.getElementById('add-part-of-speech').value;
   if (!baseText) return toast('Base text is required.', 'error');
   try {
-    await api.addRecord(currentList, { baseText, learningText });
+    await api.addRecord(currentList, { baseText, learningText, partOfSpeech });
     document.getElementById('add-base-text').value = '';
     document.getElementById('add-learning-text').value = '';
+    document.getElementById('add-part-of-speech').value = '';
     toast('Record added.', 'success');
+    loadCurrentList();
+    loadListCounts();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+};
+
+// ---------------- Auto-translate ----------------
+
+document.getElementById('add-translate-btn').onclick = async () => {
+  const baseText = document.getElementById('add-base-text').value.trim();
+  if (!baseText) return toast('Enter a base-language word/phrase first.', 'error');
+  const targetLanguage = targetLearningLanguage();
+  try {
+    toast('Translating…', 'info');
+    const { data } = await api.translate(baseText, targetLanguage);
+    if (!data.options || data.options.length === 0) {
+      return toast('No translation options found. Enter it manually.', 'error');
+    }
+    const selected = await translateOptionsModal({ baseWord: baseText, targetLanguage: data.targetLanguage, options: data.options });
+    if (!selected) return;
+
+    if (selected.length === 1) {
+      document.getElementById('add-learning-text').value = selected[0].text;
+      if (selected[0].partOfSpeech) document.getElementById('add-part-of-speech').value = selected[0].partOfSpeech;
+      toast('Translation filled in — review and click "Add Record".', 'success');
+    } else {
+      // Mass-accept: create one record per selected option.
+      const records = selected.map((opt) => ({ baseText, learningText: opt.text, partOfSpeech: opt.partOfSpeech }));
+      const { data: bulkData } = await api.bulkAdd(currentList, records);
+      toast(`Added ${bulkData.added} record(s) from the selected translation options.`, 'success');
+      document.getElementById('add-base-text').value = '';
+      document.getElementById('add-learning-text').value = '';
+      document.getElementById('add-part-of-speech').value = '';
+      loadCurrentList();
+      loadListCounts();
+    }
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+};
+
+// ---------------- Advanced editor: bulk actions ----------------
+
+document.getElementById('bulk-move-btn').onclick = async () => {
+  if (selectedIds.size === 0) return toast('Select at least one record first.', 'error');
+  const to = document.getElementById('bulk-move-target').value;
+  try {
+    const { data } = await api.bulkMove(currentList, Array.from(selectedIds), to);
+    toast(`Moved ${data.moved} record(s) to ${to}.${data.skippedFull ? ` ${data.skippedFull} skipped (Learn list full).` : ''}`, 'success');
+    selectedIds.clear();
+    loadCurrentList();
+    loadListCounts();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+};
+
+document.getElementById('bulk-pos-btn').onclick = async () => {
+  if (selectedIds.size === 0) return toast('Select at least one record first.', 'error');
+  const partOfSpeech = document.getElementById('bulk-pos-select').value;
+  try {
+    const { data } = await api.bulkEdit(currentList, Array.from(selectedIds), { partOfSpeech });
+    toast(`Updated part of speech on ${data.updated} record(s).`, 'success');
+    loadCurrentList();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+};
+
+document.getElementById('bulk-delete-btn').onclick = async () => {
+  if (selectedIds.size === 0) return toast('Select at least one record first.', 'error');
+  const ok = await confirmModal({
+    title: 'Delete selected records?',
+    body: `Delete ${selectedIds.size} record(s) from ${currentList}? This cannot be undone.`,
+    confirmText: 'Delete',
+    danger: true,
+  });
+  if (!ok) return;
+  try {
+    const { data } = await api.bulkDelete(currentList, Array.from(selectedIds));
+    toast(`Deleted ${data.deleted} record(s).`, 'success');
+    selectedIds.clear();
+    loadCurrentList();
+    loadListCounts();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+};
+
+document.getElementById('mass-add-btn').onclick = async () => {
+  const textarea = document.getElementById('mass-add-textarea');
+  const lines = textarea.value.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return toast('Enter at least one line.', 'error');
+  const records = lines.map((line) => {
+    const [baseText, learningText, partOfSpeech] = line.split(',').map((s) => (s || '').trim());
+    return { baseText, learningText, partOfSpeech };
+  }).filter((r) => r.baseText);
+  if (records.length === 0) return toast('No valid lines found.', 'error');
+  try {
+    const { data } = await api.bulkAdd(currentList, records);
+    toast(`Added ${data.added} record(s).${data.skipped ? ` ${data.skipped} skipped (list full or invalid).` : ''}`, 'success');
+    textarea.value = '';
     loadCurrentList();
     loadListCounts();
   } catch (err) {
@@ -271,6 +488,7 @@ document.getElementById('settings-save-btn').onclick = async () => {
   try {
     const { data } = await api.updateSettings({ email, baseLanguage, learningLanguages, fluency });
     currentUser = data.user;
+    applyLanguageLabels();
     toast('Settings saved.', 'success');
   } catch (err) {
     toast(err.message, 'error');
@@ -355,6 +573,7 @@ document.getElementById('delete-account-btn').onclick = async () => {
 // ---------------- Boot ----------------
 
 async function boot() {
+  populateMoveTargetSelect();
   const token = getToken();
   if (!token) {
     els.viewAuth.classList.remove('hidden');

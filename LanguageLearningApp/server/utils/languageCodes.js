@@ -84,4 +84,25 @@ function matchesLanguage(raw, languageName) {
   return toDisplayName(raw).toLowerCase() === String(languageName).trim().toLowerCase();
 }
 
-module.exports = { toDisplayName, matchesLanguage };
+const NAME_TO_CODE = Object.keys(CODE_TO_NAME).reduce((acc, code) => {
+  const name = CODE_TO_NAME[code].toLowerCase();
+  // Prefer the shortest/plainest code for a given name (first one wins,
+  // since object key order is insertion order and "en", "es", etc. are
+  // listed before their regional variants).
+  if (!(name in acc)) acc[name] = code;
+  return acc;
+}, {});
+
+// Converts a language name (e.g. "English") or code (e.g. "en") into an
+// ISO-ish code suitable for use with a translation API. Falls back to
+// lower-casing the first two letters of an unrecognized name so we still
+// send *something* reasonable.
+function toLangCode(raw) {
+  const value = String(raw || '').trim().toLowerCase();
+  if (!value) return '';
+  if (CODE_TO_NAME[value]) return value; // already a valid code
+  if (NAME_TO_CODE[value]) return NAME_TO_CODE[value];
+  return value.slice(0, 2);
+}
+
+module.exports = { toDisplayName, matchesLanguage, toLangCode };

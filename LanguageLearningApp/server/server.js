@@ -7,6 +7,7 @@ const authRoutes = require('./routes/auth');
 const accountRoutes = require('./routes/account');
 const listsRoutes = require('./routes/lists');
 const importRoutes = require('./routes/import');
+const translateRoutes = require('./routes/translate');
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/account', accountRoutes);
 app.use('/api/lists', listsRoutes);
 app.use('/api/import', importRoutes);
+app.use('/api/translate', translateRoutes);
 
 // Serve the static frontend (vanilla HTML/CSS/JS - no build step required).
 const publicDir = path.join(__dirname, '..', 'public');

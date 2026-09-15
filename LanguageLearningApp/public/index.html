@@ -25,6 +25,7 @@
         </label>
         <button id="login-submit" class="btn btn-primary">Log In</button>
         <p class="switch-link">No account yet? <a href="#" id="show-register">Create one</a></p>
+        <p class="switch-link"><a href="#" id="show-forgot">Forgot password?</a></p>
       </div>
 
       <div id="register-form" class="auth-form hidden">
@@ -41,12 +42,12 @@
 
       <div id="forgot-form" class="auth-form hidden">
         <h2>Reset Password</h2>
-        <p class="muted">That email is already in use. Enter a new password to reset it.</p>
+        <p id="forgot-form-hint" class="muted">Enter your account email and a new password to reset it.</p>
         <label>Email
-          <input type="email" id="forgot-email" />
+          <input type="email" id="forgot-email" autocomplete="username" />
         </label>
         <label>New Password
-          <input type="password" id="forgot-password" placeholder="At least 6 characters" />
+          <input type="password" id="forgot-password" placeholder="At least 6 characters" autocomplete="new-password" />
         </label>
         <button id="forgot-submit" class="btn btn-primary">Reset Password</button>
         <p class="switch-link"><a href="#" id="show-login-2">Back to log in</a></p>
@@ -73,16 +74,48 @@
     <main class="content">
       <!-- LISTS TAB -->
       <section id="tab-lists" class="tab-panel">
-        <div class="list-tabs">
-          <button class="list-tab active" data-list="Learn">Learn <span class="count-pill" id="count-Learn">0/100</span></button>
-          <button class="list-tab" data-list="Learning">Learning <span class="count-pill" id="count-Learning">0</span></button>
-          <button class="list-tab" data-list="Learned">Learned <span class="count-pill" id="count-Learned">0</span></button>
+        <div class="list-tabs-row">
+          <div class="list-tabs">
+            <button class="list-tab active" data-list="Learn">Learn <span class="count-pill" id="count-Learn">0/100</span></button>
+            <button class="list-tab" data-list="Learning">Learning <span class="count-pill" id="count-Learning">0</span></button>
+            <button class="list-tab" data-list="Learned">Learned <span class="count-pill" id="count-Learned">0</span></button>
+          </div>
+          <label class="checkbox-row advanced-toggle">
+            <input type="checkbox" id="advanced-mode-toggle" />
+            Advanced Editor Mode
+          </label>
         </div>
 
         <div class="add-record-bar">
-          <input type="text" id="add-base-text" placeholder="Base language text (e.g. English word/phrase)" />
+          <input type="text" id="add-base-text" placeholder="Base language text" />
+          <select id="add-part-of-speech" title="Part of Speech"></select>
           <input type="text" id="add-learning-text" placeholder="Learning language text (optional)" />
+          <button id="add-translate-btn" class="btn btn-ghost" title="Auto-translate using Google Translate">🔄 Translate</button>
           <button id="add-record-btn" class="btn btn-primary">+ Add Record</button>
+        </div>
+
+        <!-- ADVANCED EDITOR: bulk select/move/edit/delete toolbar -->
+        <div id="bulk-toolbar" class="bulk-toolbar hidden">
+          <label class="checkbox-row">
+            <input type="checkbox" id="select-all-checkbox" />
+            Select All
+          </label>
+          <span id="selected-count" class="muted">0 selected</span>
+          <span class="muted select-hint" title="Click a checkbox to select only it. Ctrl/Cmd+Click adds or removes one from the selection. Shift+Click selects a range.">ⓘ Ctrl+Click to add · Shift+Click for a range</span>
+          <span class="toolbar-spacer"></span>
+          <select id="bulk-move-target"></select>
+          <button id="bulk-move-btn" class="btn btn-ghost btn-small">Move Selected</button>
+          <select id="bulk-pos-select"></select>
+          <button id="bulk-pos-btn" class="btn btn-ghost btn-small">Set Part of Speech</button>
+          <button id="bulk-delete-btn" class="btn btn-danger btn-small">Delete Selected</button>
+        </div>
+
+        <!-- ADVANCED EDITOR: mass add panel -->
+        <div id="mass-add-panel" class="card hidden">
+          <h3>Mass Add</h3>
+          <p class="muted">One record per line: <code>Base text, Translation, Part of speech</code> (translation and part of speech are optional).</p>
+          <textarea id="mass-add-textarea" rows="5" placeholder="hello, hola, interjection&#10;the library, la biblioteca, noun"></textarea>
+          <button id="mass-add-btn" class="btn btn-primary">Add All Lines</button>
         </div>
 
         <div id="records-container" class="records-container">
