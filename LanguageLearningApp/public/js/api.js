@@ -63,7 +63,25 @@ export const api = {
   bulkMove: (table, ids, to) => request(`/lists/${table}/bulk-move`, { method: 'POST', body: { ids, to } }),
 
   // translate
-  translate: (text, targetLanguage) => request('/translate', { method: 'POST', body: { text, targetLanguage } }),
+  translate: (text, targetLanguage, sourceLanguage) =>
+    request('/translate', { method: 'POST', body: { text, targetLanguage, sourceLanguage } }),
+
+  // speech-to-text (fallback for when the browser's SpeechRecognition
+  // can't reach its cloud service)
+  speechConfig: () => request('/speech/config'),
+  transcribeAudio: (blob, language) => {
+    const form = new FormData();
+    // Filename matters: the provider infers the container from it.
+    const extension = (blob.type || '').includes('ogg') ? 'ogg' : (blob.type || '').includes('mp4') ? 'm4a' : 'webm';
+    form.append('audio', blob, `recording.${extension}`);
+    if (language) form.append('language', language);
+    return request('/speech/transcribe', { method: 'POST', body: form, isForm: true });
+  },
+
+  // wikipedia (Teach Me Something)
+  wikiSearch: (q) => request(`/wiki/search?q=${encodeURIComponent(q)}`),
+  wikiRandom: (category) => request(`/wiki/random${category ? `?category=${encodeURIComponent(category)}` : ''}`),
+  wikiCategories: () => request('/wiki/categories'),
 
   // import
   importCsv: (file, advanced) => {

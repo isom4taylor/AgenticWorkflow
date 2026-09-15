@@ -5,15 +5,17 @@ const { translateText } = require('../utils/translate');
 const router = express.Router();
 router.use(requireAuth);
 
-// POST /api/translate  { text, targetLanguage? }
+// POST /api/translate  { text, targetLanguage?, sourceLanguage? }
 // Defaults source language to the user's base language and target language
-// to the user's first configured learning language.
+// to the user's first configured learning language. Both can be overridden,
+// which lets callers translate in reverse (e.g. "Teach Me Something" turning
+// a highlighted learning-language word back into the base language).
 router.post('/', async (req, res) => {
-  const { text, targetLanguage } = req.body || {};
+  const { text, targetLanguage, sourceLanguage: requestedSource } = req.body || {};
   if (!text || !String(text).trim()) {
     return res.status(400).json({ error: 'text is required.' });
   }
-  const sourceLanguage = req.user.base_language;
+  const sourceLanguage = requestedSource || req.user.base_language;
   const target = targetLanguage || req.user.learning_languages[0];
 
   try {

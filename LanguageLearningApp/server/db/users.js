@@ -2,6 +2,7 @@
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const { readJson, writeJson } = require('./jsonFile');
+const { toLangCode } = require('../utils/languageCodes');
 
 const USERS_FILE = path.join(__dirname, '..', 'data', 'users.json');
 
@@ -13,10 +14,17 @@ function saveAll(db) {
   writeJson(USERS_FILE, db);
 }
 
+// Strips the password hash and adds the resolved language codes, so the
+// browser (speech synthesis/recognition, Wikipedia lookups) doesn't need its
+// own copy of the language-name -> code table.
 function toPublic(user) {
   if (!user) return null;
   const { password_hash, ...rest } = user;
-  return rest;
+  return {
+    ...rest,
+    base_language_code: toLangCode(rest.base_language),
+    learning_language_code: toLangCode((rest.learning_languages || [])[0]),
+  };
 }
 
 function findByEmail(email) {

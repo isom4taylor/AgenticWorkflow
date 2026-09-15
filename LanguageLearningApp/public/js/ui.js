@@ -73,7 +73,10 @@ export function promptMoveModal(currentList, otherLists) {
   });
 }
 
-export function editRecordModal(record) {
+// Also used to review a brand new record before saving (e.g. a word
+// harvested from "Teach Me Something"), hence the overridable title/save
+// label and the optional intro line.
+export function editRecordModal(record, { title = 'Edit record', saveText = 'Save', intro = '' } = {}) {
   return new Promise((resolve) => {
     const root = document.getElementById('modal-root');
     const overlay = document.createElement('div');
@@ -82,7 +85,8 @@ export function editRecordModal(record) {
     const learningLangLabel = escapeHtml(record.learning_language || 'Learning language');
     overlay.innerHTML = `
       <div class="modal-box">
-        <h3>Edit record</h3>
+        <h3>${escapeHtml(title)}</h3>
+        ${intro ? `<p class="muted">${escapeHtml(intro)}</p>` : ''}
         <label class="muted">${baseLangLabel}
           <input type="text" id="edit-base-text" value="${escapeHtml(record.base_text)}" />
         </label>
@@ -94,7 +98,7 @@ export function editRecordModal(record) {
         </label>
         <div class="modal-actions">
           <button class="btn btn-ghost" id="modal-cancel">Cancel</button>
-          <button class="btn btn-primary" id="modal-save">Save</button>
+          <button class="btn btn-primary" id="modal-save">${escapeHtml(saveText)}</button>
         </div>
       </div>`;
     root.appendChild(overlay);
