@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Language Learning App</title>
-<link rel="stylesheet" href="/styles.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Language Learning App</title>
+  <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <div id="toast-container" class="toast-container"></div>
@@ -58,22 +58,50 @@
   <!-- APP VIEW -->
   <div id="view-app" class="app-shell hidden">
     <nav class="navbar">
-      <div class="nav-brand">🌐 Language Learning App</div>
-      <div class="nav-tabs">
-        <button class="nav-tab active" data-tab="lists">My Words</button>
-        <button class="nav-tab" data-tab="import">Import</button>
-        <button class="nav-tab" data-tab="settings">Settings</button>
-        <button class="nav-tab" data-tab="account">Account</button>
-      </div>
+      <a class="nav-brand" href="#/" title="Go to the homepage">🌐 Language Learning App</a>
+
       <div class="nav-right">
         <span id="streak-badge" class="streak-badge" title="Daily streak">🔥 0</span>
-        <button id="logout-btn" class="btn btn-ghost">Log Out</button>
+
+        <!-- Everything that used to be a top-bar tab now lives in here. -->
+        <div class="profile-menu">
+          <button id="profile-btn" class="profile-btn" title="Profile & settings" aria-haspopup="true" aria-expanded="false">
+            <span id="profile-initial">?</span>
+          </button>
+          <div id="profile-dropdown" class="profile-dropdown hidden" role="menu">
+            <div class="profile-dropdown-header">
+              <strong id="profile-email">—</strong>
+              <span class="muted" id="profile-languages">—</span>
+            </div>
+            <button class="profile-item" data-route="/words" role="menuitem">📚 My Words</button>
+            <button class="profile-item" data-route="/import" role="menuitem">⬆️ Import Data</button>
+            <button class="profile-item" data-route="/settings" role="menuitem">⚙️ Settings</button>
+            <button class="profile-item" data-route="/account" role="menuitem">👤 Account</button>
+            <div class="profile-divider"></div>
+            <button class="profile-item danger" id="logout-btn" role="menuitem">🚪 Log Out</button>
+          </div>
+        </div>
       </div>
     </nav>
 
     <main class="content">
-      <!-- LISTS TAB -->
-      <section id="tab-lists" class="tab-panel">
+      <!-- Pages rendered by their page module -->
+      <section id="page-home" class="page-panel hidden"></section>
+      <section id="page-words-of-the-day" class="page-panel hidden"></section>
+      <section id="page-flash-cards" class="page-panel hidden"></section>
+      <section id="page-practice" class="page-panel hidden"></section>
+      <section id="page-quizzes" class="page-panel hidden"></section>
+      <section id="page-guides" class="page-panel hidden"></section>
+      <section id="page-teach-me" class="page-panel hidden"></section>
+
+      <!-- MY WORDS (the Learning Language Database editor) -->
+      <section id="page-words" class="page-panel hidden">
+        <a class="back-link" href="#/">← Home</a>
+        <header class="page-header">
+          <h1>📚 My Words</h1>
+          <p class="muted">Your Learning Language Database. Add, edit, move and remove records.</p>
+        </header>
+
         <div class="list-tabs-row">
           <div class="list-tabs">
             <button class="list-tab active" data-list="Learn">Learn <span class="count-pill" id="count-Learn">0/100</span></button>
@@ -123,8 +151,9 @@
         </div>
       </section>
 
-      <!-- IMPORT TAB -->
-      <section id="tab-import" class="tab-panel hidden">
+      <!-- IMPORT -->
+      <section id="page-import" class="page-panel hidden">
+        <a class="back-link" href="#/">← Home</a>
         <div class="card">
           <h2>Import from Google Translate</h2>
           <p class="muted">
@@ -143,8 +172,9 @@
         </div>
       </section>
 
-      <!-- SETTINGS TAB -->
-      <section id="tab-settings" class="tab-panel hidden">
+      <!-- SETTINGS -->
+      <section id="page-settings" class="page-panel hidden">
+        <a class="back-link" href="#/">← Home</a>
         <div class="card">
           <h2>Profile Settings</h2>
           <label>Email
@@ -181,8 +211,9 @@
         </div>
       </section>
 
-      <!-- ACCOUNT TAB -->
-      <section id="tab-account" class="tab-panel hidden">
+      <!-- ACCOUNT -->
+      <section id="page-account" class="page-panel hidden">
+        <a class="back-link" href="#/">← Home</a>
         <div class="card">
           <h2>Reset Account</h2>
           <p class="muted">Resets your Learning Language Database back to its initial state (default word list). This cannot be undone.</p>

@@ -44,6 +44,148 @@ All app data lives under `server/data/` (git-ignored) as JSON files:
 
 ## Features
 
+### Navigation
+The app is a small hash-routed SPA. The **homepage** (`#/`) is a tile grid
+leading into the six study sections:
+
+| Tile | Route | What it does |
+| --- | --- | --- |
+| Words of the Day | `#/words-of-the-day` | One noun, verb and adjective from `Learn` |
+| Flash Cards | `#/flash-cards` | Two-sided cards from `Learning` |
+| Practice | `#/practice` | Conjugation / speaking / listening drills |
+| Quizzes | `#/quizzes` | Listening, spoken numbers, sentence refresher |
+| Guides | `#/guides` | Slide-based grammar lessons |
+| Teach Me Something | `#/teach-me` | Wikipedia in your learning language |
+
+Everything that used to sit in the top bar as a tab now lives behind the
+**profile button** in the top right (`My Words`, `Import Data`, `Settings`,
+`Account`, `Log Out`). The only things left in the bar are the app name
+(which links home) and the daily streak badge. Deep links work: every page
+and sub-page has its own URL, the browser back button behaves, and page
+modules return a cleanup function so timers, speech playback and global key
+handlers are torn down on navigation.
+
+### Words of the Day
+Picks a random word from `Learn` for each part of speech — **noun**, **verb**,
+**adjective** — and shows the part-of-speech heading, the learning-language
+translation, and the base-language word. Picks are seeded from the calendar
+date, so they stay stable all day (that's what makes them words of *the
+day*); **🎲 Pick again** re-rolls on demand. Each card has a 🔊 button, and
+any part of speech with no matching word shows a prompt to add one instead
+of an empty card.
+
+### Flash Cards
+Cards are built from `Learning` entries that have **both** sides filled in
+(entries still missing a translation can't make a two-sided card, and the
+count of skipped entries is reported). The learning-language translation is
+on the front in large bold text; the base-language word is hidden below.
+
+- **Tap the card** (click, Enter or Space) to show/hide the answer
+- **Swipe right** for the next card, **swipe left** for the previous one
+  (touch and mouse drag), or use the **‹ ›** arrows or the **← →** keys
+- A **counter** shows the current card out of the total
+- Settings at the bottom: **swap languages** (put the base language on the
+  front), **shuffle mode** (off by default — on, it shows a randomised
+  order; off, it follows the `Learning` list order), and **sort A→Z** by
+  either the learning language or the base language
+
+### Practice
+Low-pressure drills, nothing scored against you.
+
+- **Conjugation**
+  - *Verbs* — conjugate a verb for a given pronoun and tense (present,
+    preterite, imperfect, future; mixed or a single tense; all verbs,
+    regular only, or irregular only). Regular forms are generated from the
+    endings; high-frequency irregulars (`ser`, `estar`, `ir`, `tener`,
+    `hacer`, `poder`, `decir`) are spelled out in full. A missing accent is
+    graded as correct with a nudge rather than wrong. **Show full table**
+    displays the whole six-person conjugation for reference.
+  - *Nouns / pronouns* — definite-article agreement (`el/la/los/las`,
+    including the exceptions: `el agua`, `la mano`, `el día`, `el problema`)
+    and subject-pronoun recall.
+  - *Direct / indirect objects* — rewrite a sentence replacing the object
+    with a pronoun, including the `le + lo → se lo` contraction. Filterable
+    by direct / indirect / both.
+- **Speaking**
+  - *Numbers* — the untimed version of the numbers game (see Quizzes).
+  - *Words / phrases* — a word from any of your lists is shown in the base
+    language and you say the translation; the mic grades it.
+  - *Tongue twisters* — six Spanish twisters with a gloss, a pronunciation
+    focus note, adjustable playback speed, and a mic attempt graded on how
+    many words came through.
+- **Listening**
+  - *Read my lists aloud* — plays each entry and its translation in turn,
+    highlighting the current row. Pick the list, the speed, and whether to
+    group by part of speech (each group can also be played on its own).
+
+### Quizzes
+- **Listening** — builds a short phrase from your `Learned` vocabulary,
+  speaks it in the learning language, and asks you to type what it means in
+  your base language. Grading looks only at the **content words**, so
+  phrasing and filler don't cost you a point; partial answers report which
+  words are missing. Needs at least 2 translated `Learned` entries.
+- **Speaking** — the number on screen has to be said out loud in the
+  learning language. Choose the **maximum number** (0–10, 0–100, 0–1000)
+  and a **difficulty** that sets the per-number timer: **easy 10s**,
+  **medium 6s**, **hard 3s**. Difficulty defaults from your fluency setting
+  (beginner→easy, intermediate→medium, advanced→hard). A correct answer
+  scores a point, shows a new number and restarts the clock; when the clock
+  runs out you get your score with **Play again** and a link back to the
+  menu. Spanish and English numbers are spelled out properly for grading
+  (`58` → `cincuenta y ocho`), and matching tolerates missing accents,
+  spoken digits and filler words.
+- **Refresher** — shows a base-language word from `Learned` and asks you to
+  write a sentence in the learning language using it. There's no grammar
+  checker, so the check is deliberately mechanical: it verifies you actually
+  used the target word and wrote a real sentence rather than a fragment, and
+  can read your sentence back to you.
+
+### Guides
+A table of contents leading into slide-based lessons with prev/next
+buttons, clickable slide dots, **← →** keyboard navigation, and a 🔊 button
+that reads the Spanish examples aloud. Lessons:
+
+1. **Parts of Speech / Sentence structure** — the nine word classes, SVO
+   order and pro-drop, adjective placement and the agreement chain,
+   questions and negation
+2. **Pronouns** — subject, direct object, indirect object, reflexive and
+   prepositional pronouns, plus placement rules
+3. **Verb tenses** — when to use each one, example usage side by side, and
+   conjugation variants (regular endings, stem changes, spelling changes,
+   true irregulars)
+4. **Alphabet** — all 27 letters and their names, the vowels, and the
+   consonants that trip learners up
+5. **Accentuation** — finding the stressed syllable, **agudas**, **llanas**,
+   esdrújulas, and the accents that only distinguish meaning
+
+Slides support images (`{ src, alt, caption }`) and render them when
+present; none ship with the app, so drop files in `public/img` and
+reference them from `guidesContent.js` to add visuals.
+
+### Teach Me Something
+Search Wikipedia **in your learning language** (the request is proxied
+through the server so it can map your language to the right wiki subdomain).
+
+- **Highlight any word or phrase** in the article text and a bar appears at
+  the bottom with **➕ Add to Learn**. Since a `Learn` record needs a
+  base-language side too, the selection is auto-translated *in reverse*
+  (learning → base) and shown in a review modal so you can correct it and
+  set a part of speech before saving. If auto-translate is rate-limited the
+  modal just opens with the base field empty for you to fill in.
+- **🎲 Random** picks a random topic from a random category (food,
+  beverages, animals, plants, furniture, clothing, household items,
+  hobbies, activities), resolved to the learning language via Wikipedia's
+  language links. You can also pin the category. If a topic has no article
+  in your learning language, the English one is shown with a notice.
+
+### Speech features & browser support
+Anything that speaks uses the Web Speech API's `SpeechSynthesis`, which is
+broadly supported. Anything that **listens** uses `SpeechRecognition`, which
+today means **Chrome or Edge**, over `localhost` or HTTPS, with microphone
+permission granted. Every mic-based drill detects this up front and falls
+back to typing the answer instead of showing a dead button, and the number
+game switches to the typed fallback if the mic is blocked mid-round.
+
 ### Account
 - **Create Account** — email + password. If the email is already registered,
   the UI offers a password-reset shortcut instead of failing silently.
@@ -90,7 +232,7 @@ Translation) and its field labels/placeholders always reflect your actual
 configured base/learning languages (e.g. "English" / "Spanish") rather than
 generic text.
 
-From the **My Words** tab you can, per list:
+From **My Words** (in the profile dropdown) you can, per list:
 - Add a new record (base text + optional part of speech + optional
   learning-language text — or use **🔄 Translate** to auto-fill it, see below)
 - Edit a record (base text, part of speech, translation)
@@ -198,20 +340,40 @@ LanguageLearningApp/
       account.js           settings / password / reset / dedupe / export / delete
       lists.js             CRUD + bulk move/edit/add/delete for Learn/Learning/Learned
       import.js            CSV upload & import
-      translate.js         auto-translate endpoint
+      translate.js         auto-translate endpoint (either direction)
+      wiki.js              Wikipedia search / random / categories proxy
     utils/
       googleTranslateCsv.js  CSV parsing for Google Translate exports
       textSplit.js            Sentence-splitting for "advanced import"
       languageCodes.js        language name <-> code lookups
       translate.js             auto-translate client (unofficial + official API)
+      httpJson.js              promise wrapper around https.get for JSON APIs
   public/                  Static frontend (no build step)
     index.html
     styles.css
     js/
       api.js               fetch wrapper + auth token storage
       ui.js                 toasts & modals (incl. translate-options modal)
-      main.js               app logic / view wiring
+      main.js               app shell: auth, profile menu, routes, list editor
+      router.js             hash router with per-route cleanup
+      panels.js             show/hide the one visible page panel
+      state.js              signed-in user + language accessors
+      speech.js             SpeechSynthesis / SpeechRecognition wrappers
+      textMatch.js          accent/punctuation-tolerant answer comparison
+      numberWords.js        number -> words (es/en) for grading spoken numbers
+      conjugation.js        Spanish conjugation engine + verb bank
+      practiceContent.js    article/pronoun/object drill banks, tongue twisters
+      guidesContent.js      the Guides lesson slides
       constants.js           shared part-of-speech list
+      pages/
+        home.js              homepage tile grid
+        wordsOfTheDay.js     date-seeded picks per part of speech
+        flashCards.js        card deck, swipe/arrow nav, sort & shuffle
+        practice.js          practice index + every drill
+        numbersGame.js       spoken-numbers drill (timed & untimed)
+        quizzes.js           quiz index + listening & refresher
+        guides.js            table of contents + slide viewer
+        teachMe.js           Wikipedia reader + highlight-to-add
 ```
 
 ## Google account linking (not implemented — see why)
@@ -239,3 +401,19 @@ CSV → import it here (**Import Data**, with optional sentence-splitting).
   native-module build requirements. The data access layer (`server/db/`) is
   isolated enough that it could be swapped for SQLite/Postgres later without
   touching the routes.
+- The grammar content (Guides lessons, conjugation engine, article/pronoun
+  and object-pronoun drill banks, tongue twisters) is **Spanish-specific**,
+  matching the default learning language. Those screens show a notice when
+  your learning language is something else. The language-agnostic
+  features — Words of the Day, Flash Cards, Practice → Listening, Quizzes →
+  Listening and Refresher, and Teach Me Something — work for any language
+  the server can map to a code.
+- Quiz grading is mechanical, not linguistic: there's no grammar checker or
+  translation scorer behind it. The Listening quiz checks that the expected
+  content words appear in your answer, and the Refresher checks that you
+  used the target word in something sentence-length. Both are honest signals
+  of recall without pretending to evaluate grammar.
+- The Listening quiz composes phrases from your vocabulary using simple
+  sentence frames (only when every chosen word is a noun, so the result
+  reads naturally) or a plain conjunction-joined list otherwise. It does not
+  generate arbitrary grammatical sentences.

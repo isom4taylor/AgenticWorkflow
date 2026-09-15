@@ -8,6 +8,8 @@ const accountRoutes = require('./routes/account');
 const listsRoutes = require('./routes/lists');
 const importRoutes = require('./routes/import');
 const translateRoutes = require('./routes/translate');
+const wikiRoutes = require('./routes/wiki');
+const speechRoutes = require('./routes/speech');
 
 const app = express();
 
@@ -19,6 +21,8 @@ app.use('/api/account', accountRoutes);
 app.use('/api/lists', listsRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/translate', translateRoutes);
+app.use('/api/wiki', wikiRoutes);
+app.use('/api/speech', speechRoutes);
 
 // Serve the static frontend (vanilla HTML/CSS/JS - no build step required).
 const publicDir = path.join(__dirname, '..', 'public');

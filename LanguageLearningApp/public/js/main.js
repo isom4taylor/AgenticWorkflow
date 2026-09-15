@@ -1,6 +1,16 @@
 import { api, getToken, setToken, downloadExport } from './api.js';
 import { toast, confirmModal, promptMoveModal, editRecordModal, translateOptionsModal, escapeHtml } from './ui.js';
 import { PARTS_OF_SPEECH, posOptionsHtml } from './constants.js';
+import { registerRoute, startRouter, stopRouter, navigate } from './router.js';
+import { showPanel } from './panels.js';
+import * as state from './state.js';
+import { renderHome } from './pages/home.js';
+import { renderWordsOfTheDay } from './pages/wordsOfTheDay.js';
+import { renderFlashCards } from './pages/flashCards.js';
+import { renderPractice, renderPracticeSection } from './pages/practice.js';
+import { renderQuizzes, renderQuiz } from './pages/quizzes.js';
+import { renderGuides, renderGuideLesson } from './pages/guides.js';
+import { renderTeachMe } from './pages/teachMe.js';
 
 const els = {
   viewAuth: document.getElementById('view-auth'),
@@ -94,37 +104,100 @@ function onAuthenticated({ token, user }) {
   renderApp();
 }
 
-// ---------------- App shell wiring ----------------
-
-document.getElementById('logout-btn').onclick = async () => {
-  try { await api.logout(); } catch (e) { /* ignore */ }
+function returnToAuth() {
+  stopRouter();
   setToken(null);
   currentUser = null;
+  state.setUser(null);
+  // Drop any deep link so the next sign-in starts at the homepage.
+  history.replaceState(null, '', location.pathname);
   els.viewApp.classList.add('hidden');
   els.viewAuth.classList.remove('hidden');
   showAuthPanel('login');
+}
+
+// ---------------- Profile dropdown ----------------
+// Everything that used to be a top-bar tab lives in this menu.
+
+const profileBtn = document.getElementById('profile-btn');
+const profileDropdown = document.getElementById('profile-dropdown');
+
+function setProfileMenuOpen(open) {
+  profileDropdown.classList.toggle('hidden', !open);
+  profileBtn.setAttribute('aria-expanded', String(open));
+}
+
+profileBtn.onclick = (e) => {
+  e.stopPropagation();
+  setProfileMenuOpen(profileDropdown.classList.contains('hidden'));
 };
 
-document.querySelectorAll('.nav-tab').forEach((btn) => {
-  btn.onclick = () => {
-    document.querySelectorAll('.nav-tab').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    const tab = btn.getAttribute('data-tab');
-    document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
-    document.getElementById(`tab-${tab}`).classList.remove('hidden');
-    if (tab === 'settings') fillSettingsForm();
+// Clicking anywhere else, or pressing Escape, closes the menu.
+document.addEventListener('click', (e) => {
+  if (!profileDropdown.classList.contains('hidden') && !e.target.closest('.profile-menu')) {
+    setProfileMenuOpen(false);
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') setProfileMenuOpen(false);
+});
+
+profileDropdown.querySelectorAll('.profile-item[data-route]').forEach((item) => {
+  item.onclick = () => {
+    setProfileMenuOpen(false);
+    navigate(item.getAttribute('data-route'));
   };
 });
+
+document.getElementById('logout-btn').onclick = async () => {
+  setProfileMenuOpen(false);
+  try { await api.logout(); } catch (e) { /* ignore */ }
+  returnToAuth();
+};
+
+function fillProfileHeader() {
+  document.getElementById('profile-initial').textContent =
+    (currentUser.email || '?').trim().charAt(0).toUpperCase();
+  document.getElementById('profile-email').textContent = currentUser.email;
+  document.getElementById('profile-languages').textContent =
+    `${currentUser.base_language} → ${currentUser.learning_languages.join(', ')}`;
+}
+
+// ---------------- Routes ----------------
+
+registerRoute('/', () => renderHome());
+registerRoute('/words-of-the-day', () => renderWordsOfTheDay());
+registerRoute('/flash-cards', () => renderFlashCards());
+registerRoute('/practice', () => renderPractice());
+registerRoute('/practice/:section', ({ section }) => renderPracticeSection(section));
+registerRoute('/quizzes', () => renderQuizzes());
+registerRoute('/quizzes/:quiz', ({ quiz }) => renderQuiz(quiz));
+registerRoute('/guides', () => renderGuides());
+registerRoute('/guides/:lessonId', ({ lessonId }) => renderGuideLesson(lessonId));
+registerRoute('/teach-me', () => renderTeachMe());
+
+registerRoute('/words', () => {
+  showPanel('page-words');
+  populatePartOfSpeechSelects();
+  populateMoveTargetSelect();
+  applyLanguageLabels();
+  loadListCounts();
+  loadCurrentList();
+});
+registerRoute('/import', () => { showPanel('page-import'); });
+registerRoute('/settings', () => { showPanel('page-settings'); fillSettingsForm(); });
+registerRoute('/account', () => { showPanel('page-account'); });
 
 function renderApp() {
   els.viewAuth.classList.add('hidden');
   els.viewApp.classList.remove('hidden');
+  state.setUser(currentUser);
   document.getElementById('streak-badge').textContent = `🔥 ${currentUser.daily_streak_count}`;
+  fillProfileHeader();
   fillSettingsForm();
   populatePartOfSpeechSelects();
   applyLanguageLabels();
-  loadListCounts();
-  loadCurrentList();
+  startRouter({ fallback: '/' });
 }
 
 // ---------------- Language-aware labels/placeholders ----------------
@@ -169,7 +242,7 @@ function populateMoveTargetSelect() {
   select.innerHTML = others.map((l) => `<option value="${l}">${l}</option>`).join('');
 }
 
-// ---------------- Lists tab ----------------
+// ---------------- My Words (list editor) ----------------
 
 document.querySelectorAll('.list-tab').forEach((btn) => {
   btn.onclick = () => {
@@ -465,7 +538,7 @@ document.getElementById('mass-add-btn').onclick = async () => {
   }
 };
 
-// ---------------- Import tab ----------------
+// ---------------- Import ----------------
 
 document.getElementById('import-submit').onclick = async () => {
   const fileInput = document.getElementById('import-file');
@@ -485,7 +558,7 @@ document.getElementById('import-submit').onclick = async () => {
   }
 };
 
-// ---------------- Settings tab ----------------
+// ---------------- Settings ----------------
 
 function fillSettingsForm() {
   if (!currentUser) return;
@@ -505,6 +578,8 @@ document.getElementById('settings-save-btn').onclick = async () => {
   try {
     const { data } = await api.updateSettings({ email, baseLanguage, learningLanguages, fluency });
     currentUser = data.user;
+    state.setUser(currentUser);
+    fillProfileHeader();
     applyLanguageLabels();
     toast('Settings saved.', 'success');
   } catch (err) {
@@ -525,7 +600,7 @@ document.getElementById('settings-password-btn').onclick = async () => {
   }
 };
 
-// ---------------- Account tab ----------------
+// ---------------- Account ----------------
 
 document.getElementById('reset-account-btn').onclick = async () => {
   const ok = await confirmModal({
@@ -598,12 +673,8 @@ document.getElementById('delete-account-btn').onclick = async () => {
   }
   try {
     await api.deleteAccount();
-    setToken(null);
-    currentUser = null;
     toast('Account deleted.', 'success');
-    els.viewApp.classList.add('hidden');
-    els.viewAuth.classList.remove('hidden');
-    showAuthPanel('login');
+    returnToAuth();
   } catch (err) {
     toast(err.message, 'error');
   }
