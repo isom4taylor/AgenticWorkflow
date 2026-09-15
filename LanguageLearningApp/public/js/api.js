@@ -46,6 +46,7 @@ export const api = {
   changePassword: (currentPassword, newPassword) => request('/account/password', { method: 'PUT', body: { currentPassword, newPassword } }),
   resetAccount: () => request('/account/reset', { method: 'POST', body: { confirm: true } }),
   deleteAccount: () => request('/account', { method: 'DELETE', body: { confirm: true } }),
+  dedupe: () => request('/account/dedupe', { method: 'POST', body: { confirm: true } }),
 
   // lists
   listCounts: () => request('/lists'),

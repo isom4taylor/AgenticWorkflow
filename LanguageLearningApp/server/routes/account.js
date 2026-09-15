@@ -69,6 +69,18 @@ router.post('/reset', (req, res) => {
   res.json({ ok: true });
 });
 
+// POST /api/account/dedupe  { confirm: true }
+// Removes duplicate words within a single list or spread across the
+// Learn/Learning/Learned lists (see learningDb.dedupeAll for the exact
+// cross-table priority rules).
+router.post('/dedupe', (req, res) => {
+  if (!req.body || req.body.confirm !== true) {
+    return res.status(400).json({ error: 'Dedupe must be confirmed by sending { confirm: true }.' });
+  }
+  const result = learningDb.dedupeAll(req.user.id);
+  res.json(result);
+});
+
 // GET /api/account/export - zip of Learn.csv, Learning.csv, Learned.csv
 router.get('/export', (req, res) => {
   const csvs = learningDb.exportAllAsCsv(req.user.id);

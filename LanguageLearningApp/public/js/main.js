@@ -150,6 +150,19 @@ function populatePartOfSpeechSelects() {
     .join('');
 }
 
+// Builds a short, human-readable summary of any duplicate words a
+// bulk-add call skipped, e.g.:
+//   Skipped 2 duplicate(s): "cat" (already in Learn), "dog" (already in Learning).
+function formatDuplicatesMessage(duplicates) {
+  if (!duplicates || duplicates.length === 0) return '';
+  const shown = duplicates
+    .slice(0, 5)
+    .map((d) => `"${d.baseText}" (already in ${d.existingTable})`)
+    .join(', ');
+  const extra = duplicates.length > 5 ? `, and ${duplicates.length - 5} more` : '';
+  return ` Skipped ${duplicates.length} duplicate(s): ${shown}${extra}.`;
+}
+
 function populateMoveTargetSelect() {
   const select = document.getElementById('bulk-move-target');
   const others = ALL_LISTS.filter((l) => l !== currentList);
@@ -365,10 +378,12 @@ document.getElementById('add-translate-btn').onclick = async () => {
       if (selected[0].partOfSpeech) document.getElementById('add-part-of-speech').value = selected[0].partOfSpeech;
       toast('Translation filled in — review and click "Add Record".', 'success');
     } else {
-      // Mass-accept: create one record per selected option.
+      // Mass-accept: create one record per selected option (skipping any
+      // that are exact duplicates of a record that already exists).
       const records = selected.map((opt) => ({ baseText, learningText: opt.text, partOfSpeech: opt.partOfSpeech }));
       const { data: bulkData } = await api.bulkAdd(currentList, records);
-      toast(`Added ${bulkData.added} record(s) from the selected translation options.`, 'success');
+      const dupMsg = formatDuplicatesMessage(bulkData.duplicates);
+      toast(`Added ${bulkData.added} record(s) from the selected translation options.${dupMsg}`, dupMsg ? 'info' : 'success');
       document.getElementById('add-base-text').value = '';
       document.getElementById('add-learning-text').value = '';
       document.getElementById('add-part-of-speech').value = '';
@@ -439,7 +454,9 @@ document.getElementById('mass-add-btn').onclick = async () => {
   if (records.length === 0) return toast('No valid lines found.', 'error');
   try {
     const { data } = await api.bulkAdd(currentList, records);
-    toast(`Added ${data.added} record(s).${data.skipped ? ` ${data.skipped} skipped (list full or invalid).` : ''}`, 'success');
+    const dupMsg = formatDuplicatesMessage(data.duplicates);
+    const fullMsg = data.skippedFull ? ` ${data.skippedFull} skipped (list full).` : '';
+    toast(`Added ${data.added} record(s).${dupMsg}${fullMsg}`, dupMsg || fullMsg ? 'info' : 'success');
     textarea.value = '';
     loadCurrentList();
     loadListCounts();
@@ -521,6 +538,28 @@ document.getElementById('reset-account-btn').onclick = async () => {
   try {
     await api.resetAccount();
     toast('Learning Language Database reset.', 'success');
+    loadListCounts();
+    loadCurrentList();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+};
+
+document.getElementById('dedupe-btn').onclick = async () => {
+  const ok = await confirmModal({
+    title: 'Remove duplicate records?',
+    body: 'Scans Learn, Learning, and Learned for the same word appearing more than once and removes the extras (keeping Learning when a word spans Learn/Learning/Learned or Learn/Learning or Learning/Learned; keeping Learned when a word spans only Learn/Learned). This cannot be undone.',
+    confirmText: 'Remove Duplicates',
+    danger: true,
+  });
+  if (!ok) return;
+  try {
+    const { data } = await api.dedupe();
+    if (data.removed === 0) {
+      toast('No duplicates found.', 'success');
+    } else {
+      toast(`Removed ${data.removed} duplicate record(s) across ${data.groupsAffected} word(s).`, 'success');
+    }
     loadListCounts();
     loadCurrentList();
   } catch (err) {
