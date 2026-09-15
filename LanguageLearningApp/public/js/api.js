@@ -55,6 +55,15 @@ export const api = {
   deleteRecord: (table, id) => request(`/lists/${table}/${id}`, { method: 'DELETE' }),
   moveRecord: (table, id, to) => request(`/lists/${table}/${id}/move`, { method: 'POST', body: { to } }),
 
+  // bulk / advanced editor
+  bulkAdd: (table, records) => request(`/lists/${table}/bulk-add`, { method: 'POST', body: { records } }),
+  bulkEdit: (table, ids, patch) => request(`/lists/${table}/bulk-edit`, { method: 'PUT', body: { ids, patch } }),
+  bulkDelete: (table, ids) => request(`/lists/${table}/bulk-delete`, { method: 'POST', body: { ids } }),
+  bulkMove: (table, ids, to) => request(`/lists/${table}/bulk-move`, { method: 'POST', body: { ids, to } }),
+
+  // translate
+  translate: (text, targetLanguage) => request('/translate', { method: 'POST', body: { text, targetLanguage } }),
+
   // import
   importCsv: (file, advanced) => {
     const form = new FormData();

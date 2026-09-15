@@ -1,3 +1,5 @@
+import { posOptionsHtml } from './constants.js';
+
 export function toast(message, type = 'info') {
   const container = document.getElementById('toast-container');
   const el = document.createElement('div');
@@ -76,13 +78,18 @@ export function editRecordModal(record) {
     const root = document.getElementById('modal-root');
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
+    const baseLangLabel = escapeHtml(record.base_language || 'Base language');
+    const learningLangLabel = escapeHtml(record.learning_language || 'Learning language');
     overlay.innerHTML = `
       <div class="modal-box">
         <h3>Edit record</h3>
-        <label class="muted">Base text
+        <label class="muted">${baseLangLabel}
           <input type="text" id="edit-base-text" value="${escapeHtml(record.base_text)}" />
         </label>
-        <label class="muted">Learning text
+        <label class="muted">Part of Speech
+          <select id="edit-part-of-speech">${posOptionsHtml(record.part_of_speech)}</select>
+        </label>
+        <label class="muted">${learningLangLabel}
           <input type="text" id="edit-learning-text" value="${escapeHtml(record.learning_text || '')}" />
         </label>
         <div class="modal-actions">
@@ -100,7 +107,59 @@ export function editRecordModal(record) {
       cleanup({
         baseText: overlay.querySelector('#edit-base-text').value,
         learningText: overlay.querySelector('#edit-learning-text').value,
+        partOfSpeech: overlay.querySelector('#edit-part-of-speech').value,
       });
+    };
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) cleanup(null);
+    });
+  });
+}
+
+// Shows the auto-translate results (grouped by part of speech) with a
+// per-option checkbox and a "select all" toggle. Resolves with the array of
+// selected { text, partOfSpeech } options, or null if cancelled.
+export function translateOptionsModal({ baseWord, targetLanguage, options }) {
+  return new Promise((resolve) => {
+    const root = document.getElementById('modal-root');
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    const rows = options.map((opt, i) => `
+      <label class="translate-option-row">
+        <input type="checkbox" class="opt-checkbox" data-index="${i}" ${i === 0 ? 'checked' : ''} />
+        <span class="opt-text">${escapeHtml(opt.text)}</span>
+        ${opt.partOfSpeech ? `<span class="opt-pos">${escapeHtml(opt.partOfSpeech)}</span>` : ''}
+      </label>`).join('');
+
+    overlay.innerHTML = `
+      <div class="modal-box">
+        <h3>Translate "${escapeHtml(baseWord)}"</h3>
+        <p class="muted">Options in ${escapeHtml(targetLanguage || 'the learning language')}. Check the ones you want to keep.</p>
+        <label class="select-all-row">
+          <input type="checkbox" id="opt-select-all" />
+          Select all (mass accept)
+        </label>
+        <div class="translate-options-list">${rows}</div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="modal-cancel">Cancel</button>
+          <button class="btn btn-primary" id="modal-accept">Accept Selected</button>
+        </div>
+      </div>`;
+    root.appendChild(overlay);
+
+    const cleanup = (result) => {
+      root.removeChild(overlay);
+      resolve(result);
+    };
+    const checkboxes = Array.from(overlay.querySelectorAll('.opt-checkbox'));
+    overlay.querySelector('#opt-select-all').onclick = (e) => {
+      checkboxes.forEach((cb) => { cb.checked = e.target.checked; });
+    };
+    overlay.querySelector('#modal-cancel').onclick = () => cleanup(null);
+    overlay.querySelector('#modal-accept').onclick = () => {
+      const selected = checkboxes.filter((cb) => cb.checked).map((cb) => options[Number(cb.getAttribute('data-index'))]);
+      if (selected.length === 0) return; // require at least one choice
+      cleanup(selected);
     };
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) cleanup(null);
