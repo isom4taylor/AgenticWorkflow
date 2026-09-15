@@ -154,6 +154,33 @@ as a hint next to "Select All"):
   one you just clicked, in addition to whatever's already selected. Great
   for grabbing a big contiguous block quickly.
 
+### Duplicate prevention & cleanup
+- **On add (single or bulk):** before a record is saved, the app checks
+  whether that exact word + translation combination already exists anywhere
+  in Learn, Learning, or Learned.
+  - Single **Add Record** (or the auto-translate "fill in and review" path):
+    if a duplicate is found, a warning pop-up tells you the word and which
+    list it's already in, and the record is **not** added.
+  - Bulk operations (**Mass Add**, and accepting multiple auto-translate
+    options at once): every unique record is added, and any duplicates
+    (against the existing database *or* against another line in the same
+    batch) are silently skipped and called out in the summary toast, e.g.
+    `Added 3 record(s). Skipped 2 duplicate(s): "cat" (already in Learn), ...`.
+  - Note: two entries for the same word with *different* translations are
+    **not** considered duplicates of each other — that's what lets
+    auto-translate's "mass accept" add several senses of one word (e.g.
+    "run" → verb: *correr*, noun: *carrera*) as separate records.
+- **Clean Up Duplicates** (Account tab): a one-click scan that removes a
+  word that ended up listed more than once — whether that's two copies in
+  the same list, or the same word spread across multiple lists — regardless
+  of whether a translation has been filled in yet. When a word spans more
+  than one list, exactly one copy is kept using this priority:
+  - Learn + Learning + Learned → keep the **Learning** copy
+  - Learn + Learning → keep the **Learning** copy
+  - Learning + Learned → keep the **Learning** copy
+  - Learn + Learned → keep the **Learned** copy
+  - Duplicates confined to a single list keep the earliest-added copy.
+
 ## Project structure
 
 ```
@@ -168,7 +195,7 @@ LanguageLearningApp/
     middleware/auth.js     JWT bearer-token auth guard
     routes/
       auth.js              register / login / logout / me / forgot-password
-      account.js           settings / password / reset / export / delete
+      account.js           settings / password / reset / dedupe / export / delete
       lists.js             CRUD + bulk move/edit/add/delete for Learn/Learning/Learned
       import.js            CSV upload & import
       translate.js         auto-translate endpoint

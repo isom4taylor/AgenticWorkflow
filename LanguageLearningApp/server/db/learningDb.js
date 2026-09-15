@@ -51,6 +51,46 @@ function checkLearnCap(db, toTable) {
   }
 }
 
+function normalizeText(v) {
+  return String(v === undefined || v === null ? '' : v).trim().toLowerCase();
+}
+
+// Key used to detect an "exactly the same record" duplicate when adding a
+// new word (single or bulk add): same language pair, same base word, AND
+// the same translation. Two entries for the same word with *different*
+// translations (e.g. accepting several part-of-speech options at once from
+// auto-translate: "run" -> verb: correr, noun: carrera) are intentionally
+// NOT duplicates of one another.
+function exactRecordKey({ baseLanguage, learningLanguage, baseText, learningText }) {
+  return [normalizeText(baseLanguage), normalizeText(learningLanguage), normalizeText(baseText), normalizeText(learningText)].join('||');
+}
+
+function exactRecordKeyForStored(r) {
+  return exactRecordKey({
+    baseLanguage: r.base_language,
+    learningLanguage: r.learning_language,
+    baseText: r.base_text,
+    learningText: r.learning_text,
+  });
+}
+
+function findExactDuplicate(db, fields) {
+  const targetKey = exactRecordKey(fields);
+  for (const table of TABLES) {
+    const match = db.tables[table].find((r) => exactRecordKeyForStored(r) === targetKey);
+    if (match) return { table, record: match };
+  }
+  return null;
+}
+
+// Key used to detect a duplicate *word* across the Learn/Learning/Learned
+// tables for the cleanup feature: conceptually, a given word should only
+// ever live in one of the three lists at a time, regardless of whether a
+// translation has been filled in yet for either copy.
+function wordKeyForStored(r) {
+  return [normalizeText(r.base_language), normalizeText(r.learning_language), normalizeText(r.base_text)].join('||');
+}
+
 // Creates (or resets) a user's learning database to its initial state:
 // the "Learn" table seeded with the default vocabulary, "Learning" and
 // "Learned" empty.
@@ -113,6 +153,13 @@ function addRecord(userId, tableName, fields) {
   assertTable(tableName);
   const db = load(userId);
   checkLearnCap(db, tableName);
+  const dup = findExactDuplicate(db, fields);
+  if (dup) {
+    throw Object.assign(
+      new Error(`"${fields.baseText}" already exists in the "${dup.table}" list.`),
+      { code: 'DUPLICATE', table: dup.table }
+    );
+  }
   const record = makeRecord(db, fields);
   db.tables[tableName].push(record);
   save(userId, db);
@@ -161,17 +208,37 @@ function moveRecord(userId, fromTable, id, toTable) {
   return record;
 }
 
+// Adds every record in `records` that isn't an exact duplicate of one
+// already in the database (checked across all three tables) or of another
+// record earlier in this same batch. Returns a summary so the caller can
+// report which words were skipped and why.
 function bulkAdd(userId, tableName, records) {
   assertTable(tableName);
   const db = load(userId);
+  const seenKeys = new Set();
+  TABLES.forEach((t) => db.tables[t].forEach((r) => seenKeys.add(exactRecordKeyForStored(r))));
+
   let added = 0;
+  let skippedFull = 0;
+  const duplicates = []; // { baseText, existingTable }
+
   records.forEach((r) => {
-    if (tableName === 'Learn' && db.tables.Learn.length >= LEARN_LIST_CAP) return;
+    const key = exactRecordKey(r);
+    if (seenKeys.has(key)) {
+      const existing = findExactDuplicate(db, r);
+      duplicates.push({ baseText: r.baseText, existingTable: existing ? existing.table : tableName });
+      return;
+    }
+    if (tableName === 'Learn' && db.tables.Learn.length >= LEARN_LIST_CAP) {
+      skippedFull += 1;
+      return;
+    }
+    seenKeys.add(key);
     db.tables[tableName].push(makeRecord(db, r));
     added += 1;
   });
   save(userId, db);
-  return added;
+  return { added, duplicates, skippedFull };
 }
 
 // Moves multiple records (by id) from one table to another in a single
@@ -237,6 +304,76 @@ function bulkUpdate(userId, tableName, ids, patch) {
   return updated;
 }
 
+// Cross-table conflict resolution when the same word is found in more than
+// one list at once:
+//   Learn + Learning + Learned  -> keep the Learning copy
+//   Learn + Learning            -> keep the Learning copy
+//   Learning + Learned          -> keep the Learning copy
+//   Learn + Learned             -> keep the Learned copy
+const TABLE_KEEP_RULES = [
+  { tables: ['Learn', 'Learning', 'Learned'], keep: 'Learning' },
+  { tables: ['Learn', 'Learning'], keep: 'Learning' },
+  { tables: ['Learning', 'Learned'], keep: 'Learning' },
+  { tables: ['Learn', 'Learned'], keep: 'Learned' },
+];
+
+function pickKeepTable(tablesPresent) {
+  if (tablesPresent.size === 1) return [...tablesPresent][0];
+  const rule = TABLE_KEEP_RULES.find(
+    (r) => r.tables.length === tablesPresent.size && r.tables.every((t) => tablesPresent.has(t))
+  );
+  return rule ? rule.keep : TABLES.find((t) => tablesPresent.has(t));
+}
+
+// Scans Learn/Learning/Learned for the same word (matched by base language +
+// learning language + base text, case-insensitive/trimmed) appearing more
+// than once - whether within a single table or spread across several - and
+// removes every extra copy, keeping exactly one per word according to the
+// table-priority rules above. Duplicates confined to a single table simply
+// keep their earliest (lowest id) copy.
+function dedupeAll(userId) {
+  const db = load(userId);
+
+  const groups = new Map(); // wordKey -> [{ table, record }]
+  TABLES.forEach((table) => {
+    db.tables[table].forEach((record) => {
+      const key = wordKeyForStored(record);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push({ table, record });
+    });
+  });
+
+  const toRemove = new Set(); // `${table}:${id}`
+  let groupsAffected = 0;
+  const removedSummary = [];
+
+  groups.forEach((entries) => {
+    if (entries.length < 2) return; // no duplicate for this word
+    groupsAffected += 1;
+
+    const tablesPresent = new Set(entries.map((e) => e.table));
+    const keepTable = pickKeepTable(tablesPresent);
+    const keeper = entries
+      .filter((e) => e.table === keepTable)
+      .sort((a, b) => a.record.id - b.record.id)[0];
+
+    entries.forEach((e) => {
+      if (e === keeper) return;
+      toRemove.add(`${e.table}:${e.record.id}`);
+      removedSummary.push({ baseText: e.record.base_text, removedFromTable: e.table, keptInTable: keepTable });
+    });
+  });
+
+  if (toRemove.size > 0) {
+    TABLES.forEach((table) => {
+      db.tables[table] = db.tables[table].filter((r) => !toRemove.has(`${table}:${r.id}`));
+    });
+    save(userId, db);
+  }
+
+  return { removed: toRemove.size, groupsAffected, removedSummary };
+}
+
 function toCsv(rows) {
   const headers = ['id', 'base_language', 'part_of_speech', 'learning_language', 'base_text', 'learning_text', 'notes', 'created_at', 'updated_at'];
   const escape = (val) => {
@@ -276,5 +413,6 @@ module.exports = {
   bulkMove,
   bulkDelete,
   bulkUpdate,
+  dedupeAll,
   exportAllAsCsv,
 };

@@ -10,6 +10,7 @@ function handleDbError(res, err) {
   if (err.code === 'NOT_FOUND') return res.status(404).json({ error: err.message });
   if (err.code === 'LEARN_LIST_FULL') return res.status(409).json({ error: err.message });
   if (err.code === 'SAME_LIST') return res.status(400).json({ error: err.message });
+  if (err.code === 'DUPLICATE') return res.status(409).json({ error: err.message, table: err.table });
   console.error(err);
   return res.status(500).json({ error: 'Unexpected server error.' });
 }
@@ -84,12 +85,17 @@ router.post('/:table/bulk-add', (req, res) => {
   const valid = records.filter((r) => r && r.baseText && String(r.baseText).trim());
   if (valid.length === 0) return res.status(400).json({ error: 'Every record needs at least a baseText value.' });
   try {
-    const added = learningDb.bulkAdd(
+    const result = learningDb.bulkAdd(
       req.user.id,
       req.params.table,
       valid.map((r) => fieldsFromBody(r, { baseLanguage: req.user.base_language, learningLanguage: req.user.learning_languages[0] }))
     );
-    res.status(201).json({ added, skipped: records.length - added });
+    res.status(201).json({
+      added: result.added,
+      skipped: records.length - result.added,
+      skippedFull: result.skippedFull,
+      duplicates: result.duplicates,
+    });
   } catch (err) {
     handleDbError(res, err);
   }
