@@ -170,15 +170,18 @@ function renderVerbDrill(body) {
           <span class="drill-score">${correct} / ${asked} correct</span>
         </div>
 
-        <div class="drill-prompt">
+        <div class="drill-prompt drill-prompt-verb">
+          <div class="drill-verb-head">
+            ${escapeHtml(question.verb.infinitive)}
+            ${question.verb.irregular ? '<span class="drill-irregular-chip">irregular</span>' : ''}
+          </div>
+          <p class="muted drill-verb-gloss">${escapeHtml(question.verb.gloss)}</p>
           <span class="drill-tense-chip">${escapeHtml(question.tense.label)}</span>
-          ${question.verb.irregular ? '<span class="drill-irregular-chip">irregular</span>' : ''}
           <div class="drill-question">
             <strong>${escapeHtml(pronoun.label)}</strong>
             <span class="drill-blank">______</span>
           </div>
           <p class="muted">
-            ${escapeHtml(question.verb.infinitive)} — ${escapeHtml(question.verb.gloss)} ·
             ${escapeHtml(pronoun.gloss)} · ${escapeHtml(question.tense.gloss)}
           </p>
         </div>

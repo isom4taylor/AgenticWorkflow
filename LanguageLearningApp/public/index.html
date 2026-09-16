@@ -10,6 +10,12 @@
   <div id="toast-container" class="toast-container"></div>
   <div id="modal-root"></div>
 
+  <div id="speech-control-bar" class="speech-control-bar hidden" role="region" aria-label="Audio playback">
+    <span class="speech-control-label">Audio playing</span>
+    <button type="button" id="speech-pause-btn" class="btn btn-ghost btn-small">⏸ Pause</button>
+    <button type="button" id="speech-stop-btn" class="btn btn-ghost btn-small">⏹ Stop</button>
+  </div>
+
   <!-- AUTH VIEW -->
   <div id="view-auth" class="auth-shell hidden">
     <div class="auth-card">
@@ -151,24 +157,52 @@
         </div>
       </section>
 
-      <!-- IMPORT -->
+      <!-- IMPORT / EXPORT -->
       <section id="page-import" class="page-panel hidden">
         <a class="back-link" href="#/">← Home</a>
-        <div class="card">
-          <h2>Import from Google Translate</h2>
-          <p class="muted">
-            Export your starred/saved translations from Google Translate as a CSV file, then upload it here.
-            Imported items are added to your <strong>Learning</strong> list.
-          </p>
-          <div class="form-row">
-            <input type="file" id="import-file" accept=".csv,text/csv" />
+        <header class="page-header">
+          <h1>⬆️ Import Data</h1>
+          <p class="muted">Export translations from Google Translate, then import the CSV into your Learning list.</p>
+        </header>
+
+        <div class="import-export-stack">
+          <div class="card">
+            <h2>1. Export from Google Translate</h2>
+            <p class="muted">
+              Get a CSV of your starred or saved translations from Google Translate first. You will upload that file in the
+              import step below.
+            </p>
+            <ul class="import-export-links">
+              <li>
+                <a href="https://translate.google.com/?op=lists" target="_blank" rel="noopener noreferrer">
+                  Open Google Translate — Saved translations ↗
+                </a>
+                <span class="muted">On the web, open <strong>Saved</strong> in the sidebar and export your list as CSV.</span>
+              </li>
+              <li>
+                <a href="https://support.google.com/translate/answer/6142480" target="_blank" rel="noopener noreferrer">
+                  Google Help: find &amp; manage Translate history ↗
+                </a>
+                <span class="muted">More about viewing, syncing, and exporting your saved translations.</span>
+              </li>
+            </ul>
           </div>
-          <label class="checkbox-row">
-            <input type="checkbox" id="import-advanced" />
-            Advanced import — break up sentences into smaller, digestible portions
-          </label>
-          <button id="import-submit" class="btn btn-primary">Import CSV</button>
-          <div id="import-result" class="import-result"></div>
+
+          <div class="card">
+            <h2>2. Import CSV into this app</h2>
+            <p class="muted">
+              Upload the CSV you exported from Google Translate. New rows are added to your <strong>Learning</strong> list.
+            </p>
+            <div class="form-row">
+              <input type="file" id="import-file" accept=".csv,text/csv" />
+            </div>
+            <label class="checkbox-row">
+              <input type="checkbox" id="import-advanced" />
+              Advanced import — break up sentences into smaller, digestible portions
+            </label>
+            <button id="import-submit" class="btn btn-primary">Import CSV</button>
+            <div id="import-result" class="import-result"></div>
+          </div>
         </div>
       </section>
 

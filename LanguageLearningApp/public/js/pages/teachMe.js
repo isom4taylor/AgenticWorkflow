@@ -4,9 +4,57 @@
 
 import { api } from '../api.js';
 import { showPanel, backLink } from '../panels.js';
-import { baseLanguage, learningLanguage, learningLangCode } from '../state.js';
+import { baseLanguage, learningLanguage, learningLangCode, getUser } from '../state.js';
 import { escapeHtml, toast, editRecordModal } from '../ui.js';
 import { canSpeak, speak, stopSpeaking } from '../speech.js';
+
+function historyStorageKey() {
+  const user = getUser();
+  return user ? `teachMeHistory:${user.id}` : 'teachMeHistory:guest';
+}
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(historyStorageKey());
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    return [];
+  }
+}
+
+function saveHistory(entries) {
+  try {
+    localStorage.setItem(historyStorageKey(), JSON.stringify(entries));
+  } catch (err) {
+    // Storage full or disabled — non-fatal.
+  }
+}
+
+function loadSession() {
+  try {
+    const raw = localStorage.getItem(`${historyStorageKey()}:session`);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function saveSession({ query, article }) {
+  try {
+    localStorage.setItem(`${historyStorageKey()}:session`, JSON.stringify({ query: query || '', article }));
+  } catch (err) {
+    // ignore
+  }
+}
+
+function pushHistory(entry) {
+  // Same topic again moves to the top instead of duplicating rows.
+  const history = loadHistory().filter((h) => h.title !== entry.title);
+  history.unshift(entry);
+  saveHistory(history);
+  return history;
+}
 
 export function renderTeachMe() {
   const panel = showPanel('page-teach-me');
@@ -17,6 +65,8 @@ export function renderTeachMe() {
   let article = null;
   let selection = '';
   let categories = [];
+  let history = loadHistory();
+  const session = loadSession();
 
   panel.innerHTML = `
     ${backLink('/', 'Home')}
@@ -39,6 +89,12 @@ export function renderTeachMe() {
           <option value="">Any category</option>
         </select>
       </label>
+      <label class="tm-history-label" id="tm-history-wrap">
+        History
+        <select id="tm-history-select">
+          <option value="">Choose a previous search or random topic…</option>
+        </select>
+      </label>
     </div>
 
     <div id="tm-result"></div>
@@ -55,9 +111,69 @@ export function renderTeachMe() {
 
   const queryInput = panel.querySelector('#tm-query');
   const resultEl = panel.querySelector('#tm-result');
+  const historyWrap = panel.querySelector('#tm-history-wrap');
+  const historySelect = panel.querySelector('#tm-history-select');
   const selectionBar = panel.querySelector('#tm-selection-bar');
   const selectionPreview = panel.querySelector('#tm-selection-preview');
   const categorySelect = panel.querySelector('#tm-category');
+
+  if (session && session.query) queryInput.value = session.query;
+  if (session && session.article) {
+    article = session.article;
+    renderArticle();
+  }
+
+  // --------------------------------------------------------- history UI
+
+  function openHistoryItem(itemId) {
+    const item = history.find((h) => h.id === itemId);
+    if (!item || !item.article) return;
+    stopSpeaking();
+    clearSelection();
+    article = item.article;
+    queryInput.value = item.query || item.title;
+    saveSession({ query: queryInput.value, article });
+    renderArticle();
+    if (historySelect) historySelect.value = itemId;
+  }
+
+  function renderHistory() {
+    if (!historySelect || !historyWrap) return;
+
+    const placeholder = 'Choose a previous search or random topic…';
+    historySelect.innerHTML =
+      `<option value="">${escapeHtml(placeholder)}</option>` +
+      history
+        .map((item) => {
+          const prefix = item.kind === 'random' ? '🎲 ' : '🔍 ';
+          const label = `${prefix}${item.title}`;
+          return `<option value="${escapeHtml(item.id)}">${escapeHtml(label)}</option>`;
+        })
+        .join('');
+
+    historyWrap.classList.toggle('hidden', history.length === 0);
+    historySelect.disabled = history.length === 0;
+
+    const activeId = article && history.find((h) => h.title === article.title)?.id;
+    if (activeId) historySelect.value = activeId;
+  }
+
+  function rememberArticle({ kind, query, category }) {
+    if (!article) return;
+    const id = `${kind}:${article.title}:${Date.now()}`;
+    const entry = {
+      id,
+      kind,
+      title: article.title,
+      query: query || article.title,
+      subtitle: kind === 'random' && category ? `Random · ${category}` : query || 'Search',
+      article,
+      at: Date.now(),
+    };
+    history = pushHistory(entry);
+    saveSession({ query: queryInput.value.trim(), article });
+    renderHistory();
+  }
 
   // --------------------------------------------------------- rendering
 
@@ -104,13 +220,16 @@ export function renderTeachMe() {
     if (!query) return;
     stopSpeaking();
     clearSelection();
+    queryInput.value = query;
     resultEl.innerHTML = '<p class="muted">Searching…</p>';
     try {
       const { data } = await api.wikiSearch(query);
       article = data;
       renderArticle();
+      rememberArticle({ kind: 'search', query });
     } catch (err) {
       article = null;
+      saveSession({ query, article: null });
       resultEl.innerHTML = `<p class="muted">${escapeHtml(err.message)}</p>`;
     }
   }
@@ -119,11 +238,13 @@ export function renderTeachMe() {
     stopSpeaking();
     clearSelection();
     resultEl.innerHTML = '<p class="muted">Finding something interesting…</p>';
+    const category = categorySelect.value || '';
     try {
-      const { data } = await api.wikiRandom(categorySelect.value || undefined);
+      const { data } = await api.wikiRandom(category || undefined);
       article = data;
       queryInput.value = data.title;
       renderArticle();
+      rememberArticle({ kind: 'random', query: data.title, category: category || data.category });
     } catch (err) {
       article = null;
       resultEl.innerHTML = `<p class="muted">${escapeHtml(err.message)}</p>`;
@@ -214,6 +335,13 @@ export function renderTeachMe() {
       speak(selection, { lang: langCode }).catch((err) => toast(err.message, 'error'));
     };
   }
+
+  renderHistory();
+  historySelect.onchange = () => {
+    const id = historySelect.value;
+    if (!id) return;
+    openHistoryItem(id);
+  };
 
   api.wikiCategories()
     .then(({ data }) => {

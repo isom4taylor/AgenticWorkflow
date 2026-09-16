@@ -71,6 +71,42 @@ export function hasVoiceFor(langCode) {
   return Boolean(pickVoice(langCode));
 }
 
+function notifySpeechState() {
+  if (!canSpeak()) return;
+  window.dispatchEvent(
+    new CustomEvent('speechstatechange', {
+      detail: {
+        speaking: window.speechSynthesis.speaking,
+        paused: window.speechSynthesis.paused,
+      },
+    })
+  );
+}
+
+export function isSpeaking() {
+  return canSpeak() && window.speechSynthesis.speaking;
+}
+
+export function isSpeakingPaused() {
+  return canSpeak() && window.speechSynthesis.paused;
+}
+
+export function pauseSpeaking() {
+  if (!canSpeak()) return;
+  if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+    window.speechSynthesis.pause();
+    notifySpeechState();
+  }
+}
+
+export function resumeSpeaking() {
+  if (!canSpeak()) return;
+  if (window.speechSynthesis.paused) {
+    window.speechSynthesis.resume();
+    notifySpeechState();
+  }
+}
+
 export function speak(text, { lang = 'en', rate = 1, pitch = 1 } = {}) {
   return new Promise((resolve, reject) => {
     if (!canSpeak()) {
@@ -83,8 +119,13 @@ export function speak(text, { lang = 'en', rate = 1, pitch = 1 } = {}) {
     utterance.pitch = pitch;
     const voice = pickVoice(lang);
     if (voice) utterance.voice = voice;
-    utterance.onend = () => resolve();
+    utterance.onstart = () => notifySpeechState();
+    utterance.onend = () => {
+      notifySpeechState();
+      resolve();
+    };
     utterance.onerror = (event) => {
+      notifySpeechState();
       // "interrupted"/"canceled" just mean we called stopSpeaking(); that's
       // a normal part of navigating away, not a failure worth surfacing.
       if (event.error === 'interrupted' || event.error === 'canceled') resolve();
@@ -96,6 +137,7 @@ export function speak(text, { lang = 'en', rate = 1, pitch = 1 } = {}) {
 
 export function stopSpeaking() {
   if (canSpeak()) window.speechSynthesis.cancel();
+  notifySpeechState();
 }
 
 // Speaks a list of { text, lang } parts one after another, pausing between
@@ -117,6 +159,7 @@ export function speakSequence(parts, { gapMs = 350, rate = 1, onIndex } = {}) {
       if (cancelled) return;
       await new Promise((r) => setTimeout(r, gapMs));
     }
+    notifySpeechState();
   })();
   return {
     promise,

@@ -11,6 +11,7 @@ import { renderPractice, renderPracticeSection } from './pages/practice.js';
 import { renderQuizzes, renderQuiz } from './pages/quizzes.js';
 import { renderGuides, renderGuideLesson } from './pages/guides.js';
 import { renderTeachMe } from './pages/teachMe.js';
+import { initSpeechControls } from './speechControls.js';
 
 const els = {
   viewAuth: document.getElementById('view-auth'),
@@ -191,6 +192,7 @@ registerRoute('/account', () => { showPanel('page-account'); });
 function renderApp() {
   els.viewAuth.classList.add('hidden');
   els.viewApp.classList.remove('hidden');
+  initSpeechControls();
   state.setUser(currentUser);
   document.getElementById('streak-badge').textContent = `🔥 ${currentUser.daily_streak_count}`;
   fillProfileHeader();

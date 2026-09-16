@@ -7,7 +7,7 @@ import { showPanel, backLink } from '../panels.js';
 import { baseLanguage, learningLanguage, learningLangCode } from '../state.js';
 import { escapeHtml, toast } from '../ui.js';
 import { canSpeak, speak, stopSpeaking } from '../speech.js';
-import { containsPhrase, tokens } from '../textMatch.js';
+import { compareAnswer, containsPhrase, normalize, tokens } from '../textMatch.js';
 import { renderNumbersGame } from './numbersGame.js';
 
 const QUIZZES = [
@@ -149,7 +149,7 @@ function renderListeningQuiz(body) {
     speak(question.learningPhrase, { lang: langCode, rate: 0.85 }).catch((err) => toast(err.message, 'error'));
   }
 
-  function draw({ feedback = '', revealed = false } = {}) {
+  function draw({ feedback = '', revealed = false, answerText = '' } = {}) {
     body.innerHTML = `
       <div class="card">
         <div class="drill-controls">
@@ -171,7 +171,7 @@ function renderListeningQuiz(body) {
         </label>
         <div class="drill-answer-row">
           <button id="lq-check" class="btn btn-ghost">Check</button>
-          <button id="lq-reveal" class="btn btn-ghost">Show answer</button>
+          <button id="lq-reveal" class="btn btn-ghost">${revealed ? 'Hide answer' : 'Show answer'}</button>
           <button id="lq-next" class="btn btn-ghost">Next →</button>
         </div>
 
@@ -190,27 +190,42 @@ function renderListeningQuiz(body) {
     if (playBtn) playBtn.onclick = playAudio;
 
     const input = body.querySelector('#lq-input');
+    input.value = answerText;
     input.focus();
+    const caretAtEnd = answerText.length;
+    input.setSelectionRange(caretAtEnd, caretAtEnd);
     input.onkeydown = (e) => { if (e.key === 'Enter') grade(input.value.trim()); };
     body.querySelector('#lq-check').onclick = () => grade(input.value.trim());
-    body.querySelector('#lq-reveal').onclick = () => draw({ revealed: true });
+    body.querySelector('#lq-reveal').onclick = () => {
+      draw({ feedback, revealed: !revealed, answerText: input.value });
+    };
     body.querySelector('#lq-next').onclick = () => { buildQuestion(); draw(); if (canSpeak()) playAudio(); };
   }
 
   // Graded on the content words: each Learned word's base-language form has
   // to appear somewhere in the answer. Filler ("I need…", "some…") is
   // ignored, so a correct understanding isn't punished for phrasing.
+  function answerMatches(given) {
+    if (!given) return { ok: false, found: [], missing: question.baseWords };
+    const found = question.baseWords.filter((word) => containsPhrase(given, word));
+    const missing = question.baseWords.filter((word) => !found.includes(word));
+    const fullPhraseOk =
+      compareAnswer(given, question.expectedHint) !== 'no' ||
+      normalize(given) === normalize(question.expectedHint);
+    return { ok: missing.length === 0 || fullPhraseOk, found, missing };
+  }
+
   function grade(given) {
     if (!given) return;
     asked += 1;
-    const found = question.baseWords.filter((word) => containsPhrase(given, word));
-    const missing = question.baseWords.filter((word) => !found.includes(word));
+    const { ok, found, missing } = answerMatches(given);
 
-    if (missing.length === 0) {
+    if (ok) {
       score += 1;
       draw({
         feedback: `<span class="fb-right">✅ Correct — ${escapeHtml(question.learningPhrase)}</span>`,
         revealed: true,
+        answerText: given,
       });
       setTimeout(() => {
         if (body.isConnected) { buildQuestion(); draw(); if (canSpeak()) playAudio(); }
@@ -218,10 +233,12 @@ function renderListeningQuiz(body) {
     } else if (found.length > 0) {
       draw({
         feedback: `<span class="fb-close">🟡 Partly there — you got ${found.length} of ${question.baseWords.length}. Missing: <strong>${escapeHtml(missing.join(', '))}</strong></span>`,
+        answerText: given,
       });
     } else {
       draw({
         feedback: `<span class="fb-wrong">❌ Not quite. Listen again, or show the answer.</span>`,
+        answerText: given,
       });
     }
   }
@@ -265,7 +282,7 @@ function renderRefresherQuiz(body) {
     item = randomItem(records);
   }
 
-  function draw({ feedback = '', hint = false } = {}) {
+  function draw({ feedback = '', hint = false, draft = '' } = {}) {
     body.innerHTML = `
       <div class="card">
         <div class="drill-controls">
@@ -286,7 +303,7 @@ function renderRefresherQuiz(body) {
 
         <div class="drill-answer-row">
           <button id="rq-check" class="btn btn-ghost">Check</button>
-          <button id="rq-hint" class="btn btn-ghost">Show the word</button>
+          <button id="rq-hint" class="btn btn-ghost">${hint ? 'Hide the word' : 'Show the word'}</button>
           <button id="rq-next" class="btn btn-ghost">New word →</button>
         </div>
 
@@ -295,9 +312,10 @@ function renderRefresherQuiz(body) {
     `;
 
     const input = body.querySelector('#rq-input');
+    input.value = draft;
     input.focus();
     body.querySelector('#rq-check').onclick = () => grade(input.value.trim());
-    body.querySelector('#rq-hint').onclick = () => draw({ hint: true });
+    body.querySelector('#rq-hint').onclick = () => draw({ feedback, hint: !hint, draft: input.value });
     body.querySelector('#rq-next').onclick = () => { pick(); draw(); };
   }
 
@@ -313,12 +331,14 @@ function renderRefresherQuiz(body) {
       draw({
         feedback: `<span class="fb-wrong">❌ I can't find <strong>${escapeHtml(item.learning_text)}</strong> in there. Use the ${escapeHtml(learningLang)} word for “${escapeHtml(item.base_text)}”.</span>`,
         hint: true,
+        draft: given,
       });
       return;
     }
     if (wordCount < MIN_SENTENCE_WORDS) {
       draw({
         feedback: `<span class="fb-close">🟡 Good, you used the word — now stretch it into a full sentence (at least ${MIN_SENTENCE_WORDS} words).</span>`,
+        draft: given,
       });
       return;
     }
@@ -328,6 +348,7 @@ function renderRefresherQuiz(body) {
     draw({
       feedback: `<span class="fb-right">✅ Nice — that's a sentence using <strong>${escapeHtml(item.learning_text)}</strong>.${speakBtn}</span>
         ${canSpeak() ? `<br /><button id="rq-hear" class="btn btn-ghost btn-small">▶ Hear it</button>` : ''}`,
+      draft: given,
     });
 
     const hearBtn = body.querySelector('#rq-hear');
